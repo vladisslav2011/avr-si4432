@@ -1,0 +1,11 @@
+*
+!*/
+!*.c
+!*.x
+!*.h
+!*.fuse
+!README.md
+!Makefile.*
+!Makefile
+!.gitignore
+!COPYING
