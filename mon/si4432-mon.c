@@ -807,12 +807,7 @@ void main(void)
 			uint8_t ipkt_cmd=ipkt.cmd&~IPK_CMD_PING;
 			if(ipkt_cmd==IPK_CMD_MOD)
 			{
-				if(mod_sel!=ipkt.arg0)
-				{
-					REGW(si_mode01,0);
-					set_modem_conf(mod_sel=ipkt.arg0);
-					REGW(si_mode01,si_rxon);
-				}
+				nextmode=ipkt.arg0;
 			}
 			if(ipkt_cmd==IPK_CMD_HOP)
 			{

@@ -1025,22 +1025,21 @@ H_NEW(rxpk,"	\"rxpk len\n")
 		set_reg(0x06,0x02);
 		printf("status=%d %d\n",get_reg(0x03),get_reg(0x04));
 		set_reg(0x07,5);
-		while(get_reg(0x07)& 0x04)
-		{
-			if(get_reg(0x04)&0x80)
-			{
-				printf("rssi=%02x ",get_reg(0x26));
-				break;
-			}
-		};
-		while(get_reg(0x07)& 0x04)
+		uint8_t irssi=get_reg(0x26);
+		while(get_reg(0x07)& 0x04);
 		if(ln<0)
 			ln=get_reg(0x4b);
 		
+		printf("rssi=%02x/%02x ",get_reg(0x26),irssi);
+		uint8_t * buf=malloc(ln);
+		uint8_t rn=0x7f;
+		spi_transfer(&rn,1,0,0);
+		burst_read(buf,ln,0,1);
 		for(k=0;k<ln;k++)
 		{
-			printf("%02x",get_reg(0x7f));
+			printf("%02x",buf[k]);
 		}
+		free(buf);
 		printf("\n");
 		
 		return 0;
@@ -1087,22 +1086,10 @@ H_NEW(trxpk,"	\"trxpk len to - rx with timeout (bytes,ms)\n")
 		set_reg(0x06,0x02);
 		printf("status=%d %d\n",get_reg(0x03),get_reg(0x04));
 		set_reg(0x07,5);
+		uint8_t irssi=get_reg(0x26);
 		struct timeval ts;//start
 		struct timeval tn;//now
 		gettimeofday(&ts,NULL);
-		while(get_reg(0x07)& 0x04)
-		{
-			gettimeofday(&tn,NULL);
-			if(tn.tv_sec*1000+tn.tv_usec/1000-ts.tv_sec*1000-ts.tv_usec/1000 > ms)
-			{
-				return 0;
-			}
-			if(get_reg(0x04)&0x80)
-			{
-				printf("rssi=%02x ",get_reg(0x26));
-				break;
-			}
-		};
 		while(get_reg(0x07)& 0x04)
 		{
 			if(ln<0)
@@ -1113,10 +1100,16 @@ H_NEW(trxpk,"	\"trxpk len to - rx with timeout (bytes,ms)\n")
 				return 0;
 			}
 		}
+		printf("rssi=%02x/%02x ",get_reg(0x26),irssi);
+		uint8_t * buf=malloc(ln);
+		uint8_t rn=0x7f;
+		spi_transfer(&rn,1,0,0);
+		burst_read(buf,ln,0,1);
 		for(k=0;k<ln;k++)
 		{
-			printf("%02x",get_reg(0x7f));
+			printf("%02x",buf[k]);
 		}
+		free(buf);
 		printf("\n");
 		
 		return 0;
