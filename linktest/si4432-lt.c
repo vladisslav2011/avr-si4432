@@ -12,7 +12,7 @@
 #include "../si443x_regs.h"
 
 #define i2cpfix st7558
-#define i2c_delay() asm volatile ("nop;nop;nop; ")
+#define i2c_delay() asm volatile ("nop;\n\tnop;\n\tnop; ")
 //#define i2c_delay() _delay_us(2)
 
 #define i2c_PORT C
@@ -61,6 +61,12 @@ void REGW(uint8_t r,uint8_t v)
 {
 	REGW_m(r,v);
 }
+void REGWI(uint8_t r,uint8_t v)
+{
+	cli();
+	REGW_m(r,v);
+	sei();
+}
  
 #define REGR_m(r,v) do{\
 	SPI_CS(0);\
@@ -81,6 +87,7 @@ uint8_t REGR_f(uint8_t r)
 }
 
 #define REGR(r,v) v=REGR_f(r)
+#define REGRI(r,v) do{cli();v=REGR_f(r);sei();}while(0)
 
 #define BURSTW(r,buf,n) do{\
 	SPI_CS(0);\
@@ -114,90 +121,7 @@ uint8_t REGR_f(uint8_t r)
 //		int fb=fr/10000000.0-24.0;
 //		int fc=(fr/10000000.0-24.0-fb)*64000.0;
 
-#define si4432_swreset() do{\
-		REGW(0x07,0x80);\
-		REGW(0x07,0x00);\
-		REGW(0x07,0x01);\
-		while(GET_nIRQ());\
-		uint8_t dummy;\
-		REGR(si_interrupt1,dummy);\
-		REGR(si_interrupt2,dummy);\
-		REGW(si_inten1,0);\
-		REGW(si_inten2,0);\
-	}while(0)
 
-
-#define tune_base(fr) do{\
-		REGW(0x75,(1<<6)|(((fr>=480000000.0)?1:0)<<5)|((uint8_t)(fr/10000000.0-24.0)));\
-		REGW(0x76,(((uint32_t)((fr/10000000.0-24.0-((uint32_t)(fr/10000000.0-24.0)))*64000.0))>>8)&0xff);\
-		REGW(0x77,((uint32_t)((fr/10000000.0-24.0-((uint32_t)(fr/10000000.0-24.0)))*64000.0))&0xff);\
-	}while(0)
-
-#define setupgpio(qoff) do{\
-		REGW(0x0b,0x12);\
-		REGW(0x0c,0x15);\
-		REGW(0x0d,0x14);\
-		REGW(0x0d,0x03);\
-		REGW(0x09,qoff);\
-		REGW(0x0a,0);\
-	}while(0)
-
-
-#define M_fd(de) (de*1000llu/625llu)
-#define M_H(br,de,enmanch) (2llu*de/br/(1+enmanch))
-#define M_BWmod(br,de,enmanch) (br*(1+enmanch)+2*de)
-#define M_txdr(br) ((br<30000)?(br*(1llu<<21)/1000000llu):(br*(1llu<<16)/1000000llu))
-#define M_slow(br) (br<30000)
-#define M_iffbw(bandwidth,br,de,enmanch) si_get_iffbw(bandwidth,M_H(br,de,enmanch))
-#define M_dwn3_bypass(bandwidth,br,de,enmanch) ((M_iffbw(bandwidth,br,de,enmanch)&0x80)>>7)
-#define M_ndec_exp(bandwidth,br,de,enmanch) ((M_iffbw(bandwidth,br,de,enmanch)>>4)&0x7)
-//#define M_Rb(br) (br/1000.0)
-
-//#define M_rxosr(br,bandwidth,enmanch) (500.0*8.0*(1.0+2.0*M_dwn3_bypass(bandwidth))/((1llu<<M_ndec_exp(bandwidth))*M_Rb(br)*(1+enmanch)))
-#define M_rxosr(br,bandwidth,de,enmanch) (4000000llu*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch))/\
-	((1llu<<M_ndec_exp(bandwidth,br,de,enmanch))*br*(1+enmanch)))
-
-//#define M_ncoff(bandwidth,br,de,enmanch) ((M_Rb(br)*(1llu<<(20+M_ndec_exp(bandwidth,br,de,enmanch))))/\
-//	(500.0*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch))))
-#define M_ncoff(bandwidth,br,de,enmanch) ((br*(1llu<<(20+M_ndec_exp(bandwidth,br,de,enmanch))))/\
-	(500000llu*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch))))
-#define M_crgain(br,de,bandwidth,enmanch) (2+(1llu<<15)*(1+enmanch)*br/1000/M_rxosr(br,bandwidth,de,enmanch)/de)
-
-#define M_crgain_C(br,de,bandwidth,enmanch) ((M_crgain(br,de,bandwidth,enmanch)>0x07ff)?\
-	(((uint32_t)M_crgain(br,de,bandwidth,enmanch)>>1)|0x8000):\
-	(uint32_t)M_crgain(br,de,bandwidth,enmanch))
-#define M_ncoff_C(bandwidth,br,de,enmanch) (((uint32_t)M_ncoff(bandwidth,br,de,enmanch)>=(1llu<<20))?\
-	((1llu<<20)-1):M_ncoff(bandwidth,br,de,enmanch))
-#define M_afc_bw_lim(bandwidth,br,de,enmanch) (1000llu*bandwidth/1250llu/(0+1))
-#define M_afc_bw_lim_C(bandwidth,br,de,enmanch) ((M_afc_bw_lim(bandwidth,br,de,enmanch)>80)?80:M_afc_bw_lim(bandwidth,br,de,enmanch))
-
-
-#define setup_modem(br,deviation,bandwidth,enmanch,enafc) do{\
-		uint8_t buf;\
-		REGR(0x70,buf);\
-		if(enmanch)buf|=0x02;else buf&=~0x02;\
-		buf&=~(1<<5);\
-		buf|=(M_slow(br)<<5);\
-		REGW(0x70,buf);\
-		REGR(0x71,buf);\
-		buf&=~(1<<2);\
-		buf|=((M_fd(deviation)>>(8-2))&(1<<2));\
-		REGW(0x71,buf);\
-		REGW(0x72,M_fd(deviation)&0xff);\
-		REGW(0x6f,M_txdr(br)&0xff);\
-		REGW(0x6e,(M_txdr(br)>>8)&0xff);\
-		REGW(0x1c,M_iffbw(bandwidth,br,deviation,enmanch));\
-		REGW(0x20,(uint32_t)M_rxosr(br,bandwidth,deviation,enmanch)&0xff);\
-		REGW(0x21,(((uint32_t)M_rxosr(br,bandwidth,deviation,enmanch)>>3)&0xe0)|\
-			(((uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch)>>16)&0x0f));\
-		REGW(0x22,((uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch)>>8)&0xff);\
-		REGW(0x23,(uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch)&0xff);\
-		REGW(0x24,(M_crgain_C(br,deviation,bandwidth,enmanch)>>8)&0x0f);\
-		REGW(0x25,M_crgain_C(br,deviation,bandwidth,enmanch)&0xff);\
-		REGW(0x1d,enafc?(/*si_afcbd|*/si_enafc|si_1p5bypass):0);\
-		REGW(0x2a,enafc?M_afc_bw_lim_C(bandwidth,br,deviation,enmanch):0x00);\
-	}while(0)
-	
 
 struct modem_regs
 {
@@ -309,29 +233,28 @@ void restore_modem(struct modem_regs * buffer)
 /*
 */
 
+
+#define mode01_def (si_enlbd)
+
 #define FL_OVF2   0x01
 #define FL_OC2    0x02
 #define FL_CONTRX 0x04
 #define FL_INT    0x08
 #define FL_SAVED  0x10
 #define FL_PREA   0x20
+#define FL_REFR   0x40
 
-
-struct softclock
+union WD
 {
-	uint8_t sec;
-	uint8_t min;
-	uint8_t hour;
-	uint8_t day;
-	uint8_t month;
-	uint16_t year;
-	uint8_t running;
+	uint16_t w[2];
+	uint32_t d;
 };
 
-volatile struct softclock rtc;
-volatile uint32_t counter;
-volatile uint32_t comp;
+volatile uint16_t counter;
 volatile uint8_t flags;
+volatile uint8_t nextmode;
+volatile union WD latch1,delta;
+union WD cal1,cal2;
 
 /* ------------------------------------------------------------------------- */
 void init_timer1()
@@ -341,8 +264,6 @@ void init_timer1()
 	TCCR1A=0;
 	TCCR1B=(0<<WGM12)|(0<<CS12)|(0<<CS11)|(1<<CS10);
 	TIMSK|=(1<<TOIE1)|(0<<OCIE1A)|(0<<TICIE1)|(0<<OCIE1B);
-	ACSR=(1<<ACD);
-	counter=0;
 	
 }
 
@@ -352,13 +273,14 @@ void init_timer2()
 	ASSR=(1<<AS2);
 	TCNT2=0;
 	OCR2=0;
-	TCCR2=(1<<CS22)|(0<<CS22)|(1<<CS22);
-	TIMSK|=(1<<TOIE2)|(1<<OCIE2);
+	TCCR2=(0<<CS22)|(1<<CS21)|(1<<CS20);
+	TIMSK|=(1<<TOIE2)|(0<<OCIE2);
 	ACSR=(1<<ACD);
 	counter=0;
 	while(TCNT2==0);
 	
 }
+
 
 
 /* ------------------------------------------------------------------------- */
@@ -368,90 +290,47 @@ ISR(SIG_OVERFLOW1)
 }
 
 /* ------------------------------------------------------------------------- */
+#define BTN_DUR 2
 ISR(SIG_OVERFLOW2)
 {
-	++counter;
-	if(counter&0x01)
-		if(rtc.running)
-		{
-			++rtc.sec;
-			if(rtc.sec>=60)
-			{
-				rtc.sec=0;
-				++rtc.min;
-				if(rtc.min>=60)
-				{
-					++rtc.hour;
-					rtc.min=0;
-					if(rtc.hour>=24)
-					{
-						++rtc.day;
-						rtc.hour=0;
-						uint8_t monch=0;
-						switch(rtc.month)
-						{
-						case 1:
-							if((rtc.year&0x03)==0)
-							{
-								if(rtc.day>=29)
-								{
-									rtc.day=0;
-									rtc.month++;
-									monch=1;
-								}
-							}else{
-								if(rtc.day>=28)
-								{
-									rtc.day=0;
-									rtc.month++;
-									monch=1;
-								}
-							}
-							break;
-						case 0:
-						case 2:
-						case 4:
-						case 6:
-						case 7:
-						case 9:
-						case 11:
-							if(rtc.day>=31)
-							{
-								rtc.day=0;
-								rtc.month++;
-								monch=1;
-							};
-							break;
-						default:
-							if(rtc.day>=30)
-							{
-								rtc.day=0;
-								rtc.month++;
-								monch=1;
-							};
-						};
-						if(monch)
-						{
-							if(rtc.month>=11)
-							{
-								rtc.month=0;
-								rtc.year++;
-							}
-						}
-					};
-				};
-			};
-			
-		}
+/*	static uint8_t comp;
+	++comp;
+	if(!(comp&7))
+	{
+		flags|=FL_OVF2;
+		LED0_ON();
+	}*/
+	//flags|=FL_OC2;
+	cal2.w[0]=TCNT1;
+	cal2.w[1]=counter;
 	flags|=FL_OVF2;
+	LED0_ON();
+	static uint8_t btn_prev=0;
+	static uint8_t btn_dur=0;
+	uint8_t btn_tmp=BTN0_GET();
+	if(btn_tmp)
+	{
+		if(btn_dur<BTN_DUR)
+			btn_dur++;
+	}
+	if(btn_dur==BTN_DUR)
+	{
+		LED1_TOGGLE();
+		btn_dur++;
+	}
+	if(btn_tmp!=btn_prev)
+	{
+		btn_prev=btn_tmp;
+		if(!btn_prev)
+		{
+/*			if(btn_dur<BTN_DUR)
+				nextmode++;*/
+			btn_dur=BTN_DUR+2;
+		}else
+			btn_dur=0;
+	}
 }
 
-/* ------------------------------------------------------------------------- */
-ISR(SIG_OUTPUT_COMPARE2)
-{
-	++comp;
-	flags|=FL_OC2;
-}
 
 void init_spi()
 {
@@ -574,12 +453,9 @@ void pr_rssi()
 
 struct pkt_in
 {
-	uint8_t cmd;
 	uint8_t arg0;
 	uint8_t arg1;
-	uint8_t arg2;
-	uint32_t seq;
-}
+};
 
 
 
@@ -590,78 +466,128 @@ volatile uint8_t trssi;
 volatile uint8_t frssi;
 volatile uint8_t tagc;
 volatile struct pkt_in ipkt;
+struct pkt_in opkt;
 volatile uint32_t validpkts;
 volatile uint16_t afc_corr;
 struct modem_regs reg_backup;
 struct modem_regs reg_new;
 
 /* ------------------------------------------------------------------------- */
-ISR(SIG_INTERRUPT1)
+ISR(SIG_INPUT_CAPTURE1)
 {
 	uint8_t tmp1,tmp2;
+	delta.w[0]=ICR1;
+	delta.w[1]=counter;
+	delta.d-=latch1.d;
+/*	TIMSK|=(1<<TOIE2);
+	TIMSK&=~(1<<OCIE1A);
+	TIFR=(1<<OCIE1A);*/
+	REGR(si_status,tmp1);
+	if(!(tmp1&si_rxffem))
+	{
+		BURSTR(si_fifo,((uint8_t *)&ipkt),sizeof(ipkt));
+		REGR(si_afccorrh,tmp1);
+		REGR(si_ookcnt1,tmp2);
+		REGR(si_interrupt1,int1);
+		REGR(si_interrupt2,int2);
+		afc_corr=(tmp2>>si_afccorrl_shift)|(tmp1<<2);
+		validpkts++;
+	}
+	flags|=FL_INT;
+	LED0_OFF();
+}
+/* ------------------------------------------------------------------------- */
+ISR(SIG_INTERRUPT1)
+{
+//	uint8_t tmp1;
 //	GICR&=~(1<<INT1);
-	LED0_ON();
 	REGR(si_interrupt1,int1);
 	REGR(si_interrupt2,int2);
 //	GIFR=0xff;
+	if(int1&si_ipksent)
+	{
+		latch1.w[0]=TCNT1;
+		latch1.w[1]=counter;
+/*		OCR1A=latch1+60000;
+ 		TIMSK|=(1<<OCIE1A);*/
+		REGW(si_mode01,mode01_def|si_rxon|si_pllon|si_xton);
+		REGR(si_rssi,frssi);
+		trssi=frssi+7;
+	}
 	if(int2&si_ipreaval)
 	{
 		REGR(si_rssi,trssi);
-		REGR(si_agc_override,tagc);
-		tmp1=trssi/7;
-		if(rssib[prssi]<tmp1)
-		{
-			rssib[prssi]=tmp1;
-		}
+//  		TIMSK&=~(1<<TOIE2);
 	}
-	if(int1&si_ipkvalid)
-	{
-		BURSTR(si_fifo,((uint8_t *)&ipkt),sizeof(ipkt));
-		REGR(si_rssi,frssi);
-		REGR(si_afccorrh,tmp1);
-		REGR(si_ookcnt1,tmp2);
-		afc_corr=(tmp2>>si_afccorrl_shift)|(tmp1<<2);
-		rssif[prssi]=frssi/7;
-		prssi++;
-		if(prssi==sizeof(rssib))
-			prssi=0;
-		rssif[prssi]=rssib[prssi]=0;
-		validpkts++;
-		flags|=FL_INT;
-	}
+}
+
+/* ------------------------------------------------------------------------- */
+ISR(SIG_OUTPUT_COMPARE1A)
+{
+	TIMSK&=~(1<<OCIE1A);
+	TIMSK|=(1<<TOIE2);
+	REGW(si_mode01,mode01_def);
 	LED0_OFF();
 }
+
 
 void set_modem_conf(uint8_t conf)
 {
 	switch(conf)
 	{
-	case 0x01:	setup_modem(2400,2,7,0,1);break;
-	case 0x02:	setup_modem(4800,5,15,0,1);break;
-	case 0x03:	setup_modem(9600,5,22,0,1);break;
-	case 0x04:	setup_modem(19200,15,50,0,1);break;
-	case 0x05:	setup_modem(38400,50,150,0,1);break;
-	case 0x06:	setup_modem(50000,50,160,0,1);break;
-	case 0x07:	setup_modem(100000,100,300,0,1);break;
-	case 0x08:	setup_modem(200000,200,600,0,1);break;
-	default:	setup_modem(1200,1,3,0,1);break;
+	case 0x01:	si4432_setup_modem(2400,2,7,0,1,si_modtyp_fsk);break;
+	case 0x02:	si4432_setup_modem(4800,5,15,0,1,si_modtyp_fsk);break;
+	case 0x03:	si4432_setup_modem(9600,5,22,0,1,si_modtyp_fsk);break;
+	case 0x04:	si4432_setup_modem(19200,15,55,0,1,si_modtyp_fsk);break;
+	case 0x05:	si4432_setup_modem(38400,50,142,0,1,si_modtyp_fsk);break;
+	case 0x06:	si4432_setup_modem(50000,50,160,0,1,si_modtyp_fsk);break;
+	case 0x07:	si4432_setup_modem(100000,100,300,0,1,si_modtyp_fsk);break;
+	case 0x08:	si4432_setup_modem(200000,200,600,0,1,si_modtyp_fsk);break;
+	
+	default:	si4432_setup_modem(1200,1,4,0,1,si_modtyp_fsk);break;
 	}
 }
-void set_pwr(uint8_t pwr)
+
+
+uint8_t get_vcc()
 {
-	REGW(0x6d,0x18|(pwr&0x07));
+	uint8_t res;
+	REGRI(si_vbat,res);
+	return res+34;
+}
+
+static uint8_t oldboost=0;
+void update_boost()
+{
+	uint8_t k,t;
+	t=get_vcc();
+	for(k=5;k>2;k--)
+		if(t*k<=220)
+			break;
+	if(oldboost!=k)
+	{
+		st7558_set_boost(k-2);
+		oldboost=k;
+	}
 }
 
 
+#define N_AVG 40
 
+uint32_t avgbuf[N_AVG];
+uint8_t avgp=0;
+uint32_t tavg=0;
 
 void main(void)
 {
+	uint8_t mod_sel=0;
+	uint32_t last_cal1=2000000l,last_cal2=2000000l;
 	validpkts=0;
 	LED1_ON();
 	PORTD|=(1<<3)|(1<<7);
 	//PORTC|=(1<<3);
 	init_spi();
+	init_timer1();
 	init_timer2();
     sei();
 	st7558_init();
@@ -669,6 +595,8 @@ void main(void)
 	
 	memset(rssib,0,sizeof(rssib));
 	memset(rssif,0,sizeof(rssif));
+	
+	si4432_swreset();
 	uint8_t k;
 	for(k=33;k!=255;k--)
 		rssib[33-k]=k;
@@ -679,14 +607,13 @@ void main(void)
 	for(k=0;k!=33;k++)
 		rssif[k+33]=k-1;
 	pr_rssi();
-	
-	si4432_swreset();
-	setupgpio(0x53);
-	REGW(si_modcon2,si_dtmod_fifo|si_modtyp_gfsk);
+	si4432_setupgpio(0x53);
 	//setup_modem(50000,50,180,0,1);
 //	uint8_t selbr=eeprom_read_byte(0);
-	set_modem_conf(0);
-	tune_base(433920000);
+	nextmode=mod_sel=5;
+	set_modem_conf(5);
+	si4432_tune_base(433000000);
+	si4432_hop(1,180);
 	REGW(si_headcon1,0);
 	REGW(si_headcon2,si_fixpklen|si_syncword3210);
 //	REGW(si_headcon2,0);
@@ -700,82 +627,120 @@ void main(void)
 	REGW(si_inten2,0);
 	REGW(si_mode02,si_ffclrrx|si_ffclrtx);
 	REGW(si_mode02,0);
-	REGW(si_mode02,si_rxmpk);
-	REGW(si_inten1,si_ipkvalid);
+	REGW(si_inten1,si_ipksent);
 	REGW(si_inten2,si_ipreaval);
+//	REGW(si_inten2,0);
 	REGR(si_interrupt1,int1);
 	REGR(si_interrupt2,int2);
+	REGW(si_txpower,0x1f);
+	REGW(si_GPIO2,si_gpio2rxstate);
+	TIMSK|=(0<<TOIE1)|(0<<OCIE1A)|(1<<TICIE1)|(0<<OCIE1B);
+//	TIMSK|=(1<<TICIE1);
 //	REGR(0x72,pkt.fill);
-	struct modem_regs saved;
-	save_modem(&saved);
-	restore_modem(&saved);
 	LED1_OFF();
 	
-	set_sleep_mode(SLEEP_MODE_PWR_SAVE);
+	set_sleep_mode(SLEEP_MODE_IDLE);
 	GIFR=0xff;
 	GICR|=(1<<INT1);
 	REGW(si_pklen,sizeof(ipkt));
-	REGW(si_mode01,si_rxon);
-	uint32_t ipkt_s=0;
-	uint8_t ipkt_s_got=0;
-	uint8_t btn_prev=0;
+//	REGW(si_rxafthr,sizeof(ipkt)-1);
 	
     for(;;){                /* main event loop */
 //		LED0_OFF();
 		if(flags&FL_OC2)
 		{
-			flags&=~FL_OC2;
-			OCR2=TCNT2+16;
-			uint8_t btn_tmp=BTN0_GET();
-			if(btn_tmp!=btn_prev)
-			{
-				btn_prev=btn_tmp;
-				if(btn_prev)
-					LED1_TOGGLE();
-			}
+			cli();flags&=~FL_OC2;sei();
 		}
 		if(flags&FL_OVF2)
 		{
-			flags&=~FL_OVF2;
-/*			st7558_setpos(0,3);
-			st7558_print(counter&0xffff,5);*/
+			cli();flags&=~FL_OVF2;sei();
+			last_cal2=last_cal1;
+			last_cal1=cal2.d-cal1.d;
+			if(last_cal1>8000000l/4)
+				OSCCAL--;
+			if(last_cal1<8000000l/4)
+				OSCCAL++;
+			cal1.d=cal2.d;
+			update_boost();
+			TIMSK&=~(1<<TICIE1);
+			REGW(si_mode01,si_pllon|si_xton);
+			TIFR=(1<<TICIE1);
+			REGW(si_mode02,si_ffclrrx|si_ffclrtx);
+			REGW(si_mode02,0);
+			REGW(si_fifo,0);
+			REGW(si_fifo,0);
+			REGW(si_mode01,si_txon|si_pllon|si_xton);
+			TIMSK|=(1<<TICIE1);
 		}
 		if(flags&FL_INT)
 		{
-			LED0_OFF();
-			flags&=~FL_INT;
-				pr_rssi();
-				st7558_setpos(0,0);
-				st7558_prchar(VC_D);
-				st7558_prchar(VC_SPACE);
-				uint32_t tipkt;
-				((uint8_t*)&tipkt)[0]=((uint8_t *)&ipkt)[3];
-				((uint8_t*)&tipkt)[1]=((uint8_t *)&ipkt)[2];
-				((uint8_t*)&tipkt)[2]=((uint8_t *)&ipkt)[1];
-				((uint8_t*)&tipkt)[3]=((uint8_t *)&ipkt)[0];
-				if(!ipkt_s_got)
-				{
-					ipkt_s_got=1;
-					ipkt_s=tipkt;
-				}
-				st7558_print(tipkt-ipkt_s,10);
-				st7558_setpos(0,1);
-				st7558_prchar(VC_N);
-				st7558_prchar(VC_SPACE);
-				st7558_print(validpkts,10);
-				st7558_setpos(0,2);
-				st7558_prchar(VC_R);
-				st7558_prchar(VC_S);
-				st7558_prchar(VC_S);
-				st7558_prchar(VC_I);
-				st7558_prchar(VC_EQ);
-				st7558_print(trssi,3);
-				st7558_prchar(VC_COMMA);
-				st7558_print(frssi,3);
-				st7558_setpos(0,3);
-				st7558_prhex(tagc,1);
-				st7558_setpos(6*8,3);
-				st7558_print(afc_corr,4);
+			cli();flags&=~FL_INT;sei();
+			rssif[prssi]=frssi/7;
+			uint8_t tmp1;
+			tmp1=trssi/7;
+			if(rssib[prssi]<tmp1)
+			{
+				rssib[prssi]=tmp1;
+			}
+			prssi++;
+			if(prssi==sizeof(rssib))
+				prssi=0;
+			rssif[prssi]=rssib[prssi]=0;
+			cli();flags|=FL_REFR;sei();
+		}
+		if(nextmode!=mod_sel)
+		{
+			if(nextmode==0x09)
+				nextmode=0x10;
+			if(nextmode==0x19)
+				nextmode=0x20;
+			if(nextmode>=0x29)
+				nextmode=0x00;
+			REGWI(si_mode01,mode01_def);
+			set_modem_conf(mod_sel=nextmode);
+			REGW(si_mode01,mode01_def|si_rxon);
+			cli();flags|=FL_REFR;sei();
+		}
+		if(flags&FL_REFR)
+		{
+			cli();flags&=~FL_REFR;sei();
+			pr_rssi();
+			st7558_setpos(0,0);
+			st7558_prchar(VC_D);
+			st7558_prchar(VC_SPACE);
+			#if 1
+			uint32_t xx=delta.d;
+			xx*=(2000000l/32l);
+			xx/=(last_cal2/32);
+			avgp++;
+			if(avgp==N_AVG)
+				avgp=0;
+			tavg+=xx;
+			tavg-=avgbuf[avgp];
+			avgbuf[avgp]=xx;
+			st7558_print(tavg/(N_AVG/10),10);
+//			st7558_print(xx,10);
+//			st7558_print((delta.d*4000000l)/last_cal2,10);
+			#endif
+			st7558_setpos(0,1);
+			st7558_prchar(VC_N);
+			st7558_prchar(VC_SPACE);
+			st7558_print(last_cal2,10);
+//			st7558_print(validpkts,10);
+			st7558_setpos(0,2);
+			st7558_prchar(VC_R);
+			st7558_prchar(VC_S);
+			st7558_prchar(VC_S);
+			st7558_prchar(VC_I);
+			st7558_prchar(VC_EQ);
+			st7558_print(trssi,3);
+			st7558_prchar(VC_COMMA);
+			st7558_print(frssi,3);
+			st7558_setpos(0,3);
+			st7558_prhex(tagc,1);
+			st7558_prhex(mod_sel,1);
+			st7558_setpos(6*8,3);
+			st7558_print(afc_corr,4);
 		}
 /*		if(flags&FL_CONTRX)
 		{
@@ -797,7 +762,7 @@ void main(void)
 		}*/
 		//GIFR=0xff;
 		//GICR|=(1<<INT1);
-		if((flags&(FL_INT))==0)
+		if(flags==0)
 		{
 			sleep_enable();
 			sleep_cpu();

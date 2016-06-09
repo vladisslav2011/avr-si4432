@@ -151,8 +151,11 @@ uint8_t rx2buf_p;
 uint8_t rxtxrx_state;
 uint8_t rxtxrx_rssi;
 
+volatile uint8_t resp;
 
 
+void start_responder();
+void stop_responder();
 
 usbMsgLen_t usbFunctionSetup(uchar data[8])
 {
@@ -293,6 +296,14 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
 				return 0;
 			}
 			return USB_NO_MSG;
+		case CUSTOM_RESPONDER:
+				if(rq->wValue.bytes[0])
+				{
+					start_responder();
+				}else{
+					stop_responder();
+				}
+			return 0;
 	}
 	return 0;   /* default for not implemented requests: return no data back to host */
 }
@@ -491,10 +502,21 @@ void radioPoll()
 
 ISR(SIG_INPUT_CAPTURE1,ISR_NOBLOCK)
 {
-	uint16_t de=ICR1-ilast;
-	ilast=ICR1;
-	if((de<imax)&&(de>=imin))
-		intbuf[iwp++]=de;
+	if(resp)
+	{
+		resp=2;
+		REGW(si_mode01,si_txon|si_pllon|si_xton);
+		uint8_t k;
+		do{
+			REGR(si_mode01,k);
+		}while(k&si_txon);
+		REGW(si_mode01,si_rxon|si_pllon|si_xton);
+	}else{
+		uint16_t de=ICR1-ilast;
+		ilast=ICR1;
+		if((de<imax)&&(de>=imin))
+			intbuf[iwp++]=de;
+	}
 }
 
 
@@ -505,6 +527,54 @@ void init_usart()
 	UCSRA=GENU2X(115200);
 	UCSRC=(1<<URSEL)|(0<<UPM0)|(0<<UPM1)|(0<<USBS)|(1<<UCSZ1)|(1<<UCSZ0);
 	UCSRB=(1<<RXEN)|(1<<TXEN)|(0<<UCSZ2);
+}
+
+void set_modem_conf(uint8_t conf)
+{
+	switch(conf)
+	{
+	case 0x01:	si4432_setup_modem(2400,2,7,0,1,si_modtyp_fsk);break;
+	case 0x02:	si4432_setup_modem(4800,5,15,0,1,si_modtyp_fsk);break;
+	case 0x03:	si4432_setup_modem(9600,5,22,0,1,si_modtyp_fsk);break;
+	case 0x04:	si4432_setup_modem(19200,15,55,0,1,si_modtyp_fsk);break;
+	case 0x05:	si4432_setup_modem(38400,50,142,0,1,si_modtyp_fsk);break;
+	case 0x06:	si4432_setup_modem(50000,50,160,0,1,si_modtyp_fsk);break;
+	case 0x07:	si4432_setup_modem(100000,100,300,0,1,si_modtyp_fsk);break;
+	case 0x08:	si4432_setup_modem(200000,200,600,0,1,si_modtyp_fsk);break;
+	
+	default:	si4432_setup_modem(1200,1,4,0,1,si_modtyp_fsk);break;
+	}
+}
+
+
+void start_responder()
+{
+	uint8_t int1,int2;
+	REGW(si_inten1,0);
+	REGW(si_inten2,0);
+	REGW(si_pklen,2);
+	REGW(si_mode02,si_ffclrrx|si_ffclrtx);
+	REGW(si_mode02,0);
+	REGR(si_interrupt1,int1);
+	REGR(si_interrupt2,int2);
+	REGW(si_GPIO2,si_gpio2rxstate);
+	REGW(si_fifo,0);
+	REGW(si_fifo,0);
+	TIFR=(1<<TICIE1);
+	TIMSK|=(1<<TICIE1);
+	REGW(si_mode01,si_rxon|si_pllon|si_xton);
+	resp=1;
+	TCCR1A=0;
+	TCCR1B=(0<<ICES1)|1;
+}
+
+void stop_responder()
+{
+	TIMSK&=~(1<<TICIE1);
+	resp=0;
+	REGW(si_mode01,0);
+	REGW(si_mode02,si_ffclrrx|si_ffclrtx);
+	REGW(si_mode02,0);
 }
 
 
@@ -521,11 +591,26 @@ uchar   i;
     while(--i){             /* fake USB disconnect for > 250 ms */
         _delay_ms(1);
     }
+	init_spi();
+	si4432_swreset();
+	si4432_setupgpio(0x58);
+	set_modem_conf(5);
+	si4432_tune_base(433000000);
+	si4432_hop(1,180);
+	REGW(si_headcon1,0);
+	REGW(si_headcon2,si_fixpklen|si_syncword3210);
+//	REGW(si_headcon2,0);
+	REGW(si_prealenl,16);
+	REGW(si_sync3,0x0f);
+	REGW(si_sync2,0x34);
+	REGW(si_sync1,0x21);
+	REGW(si_sync0,0xff);
+	REGW(si_data_access_contorl,si_enpacrx|si_enpactx|si_encrc|si_crc16);
+	start_responder();
+ 	set_sleep_mode(SLEEP_MODE_IDLE);
     usbDeviceConnect();
     sei();
 	DDRD&=~(1<<4);
-	init_spi();
- 	set_sleep_mode(SLEEP_MODE_IDLE);
     for(;;){                /* main event loop */
 		if((rxtxrx_state&0x7f)<=0)
 		{
@@ -547,6 +632,22 @@ uchar   i;
 		}*/
 		LED0_OFF();
 		radioPoll();
+/*		if(resp==2)
+		{
+			uint8_t tmp,int1,int2;
+			REGR(si_ezmac_stat,tmp);
+			if(tmp&si_pksent)
+			{
+				REGW(si_mode02,si_ffclrrx|si_ffclrtx);
+				REGW(si_mode02,0);
+				REGR(si_interrupt1,int1);
+				REGR(si_interrupt2,int2);
+				REGW(si_fifo,0);
+				REGW(si_fifo,0);
+				REGW(si_mode01,si_rxon|si_pllon|si_xton);
+				resp=1;
+			}
+		}*/
     };
 }
 

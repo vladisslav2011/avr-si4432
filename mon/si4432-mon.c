@@ -12,7 +12,7 @@
 #include "../si443x_regs.h"
 
 #define i2cpfix st7558
-#define i2c_delay() asm volatile ("nop;nop;nop; ")
+#define i2c_delay() asm volatile ("nop;\n\tnop;\n\tnop; ")
 //#define i2c_delay() _delay_us(2)
 
 #define i2c_PORT C
@@ -61,6 +61,12 @@ void REGW(uint8_t r,uint8_t v)
 {
 	REGW_m(r,v);
 }
+void REGWI(uint8_t r,uint8_t v)
+{
+	cli();
+	REGW_m(r,v);
+	sei();
+}
  
 #define REGR_m(r,v) do{\
 	SPI_CS(0);\
@@ -81,6 +87,7 @@ uint8_t REGR_f(uint8_t r)
 }
 
 #define REGR(r,v) v=REGR_f(r)
+#define REGRI(r,v) do{cli();v=REGR_f(r);sei();}while(0)
 
 #define BURSTW(r,buf,n) do{\
 	SPI_CS(0);\
@@ -114,99 +121,6 @@ uint8_t REGR_f(uint8_t r)
 //		int fb=fr/10000000.0-24.0;
 //		int fc=(fr/10000000.0-24.0-fb)*64000.0;
 
-#define si4432_swreset() do{\
-		REGW(0x07,0x80);\
-		REGW(0x07,0x00);\
-		REGW(0x07,0x01);\
-		while(GET_nIRQ());\
-		uint8_t dummy;\
-		REGR(si_interrupt1,dummy);\
-		REGR(si_interrupt2,dummy);\
-		REGW(si_inten1,0);\
-		REGW(si_inten2,0);\
-	}while(0)
-
-
-#define tune_base(fr) do{\
-		REGW(0x75,(1<<6)|(((fr>=480000000.0)?1:0)<<5)|((uint8_t)(fr/10000000.0-24.0)));\
-		REGW(0x76,(((uint32_t)((fr/10000000.0-24.0-((uint32_t)(fr/10000000.0-24.0)))*64000.0))>>8)&0xff);\
-		REGW(0x77,((uint32_t)((fr/10000000.0-24.0-((uint32_t)(fr/10000000.0-24.0)))*64000.0))&0xff);\
-	}while(0)
-
-#define setupgpio(qoff) do{\
-		REGW(0x0b,0x12);\
-		REGW(0x0c,0x15);\
-		REGW(0x0d,0x14);\
-		REGW(0x0d,0x03);\
-		REGW(0x09,qoff);\
-		REGW(0x0a,0);\
-	}while(0)
-
-
-#define M_fd(de) (de*1000llu/625llu)
-#define M_H(br,de,enmanch) (2llu*de/br/(1+enmanch))
-#define M_BWmod(br,de,enmanch) (br*(1+enmanch)+2*de)
-#define M_txdr(br) ((br<30000)?(br*(1llu<<21)/1000000llu):(br*(1llu<<16)/1000000llu))
-#define M_slow(br) (br<30000)
-#define M_iffbw(bandwidth,br,de,enmanch,mod) ((mod==si_modtyp_ook)?si_ook_iffbw(br,bandwidth):si_get_iffbw(bandwidth,M_H(br,de,enmanch)))
-#define M_dwn3_bypass(bandwidth,br,de,enmanch,mod) ((M_iffbw(bandwidth,br,de,enmanch,mod)&0x80)>>7)
-#define M_ndec_exp(bandwidth,br,de,enmanch,mod) ((M_iffbw(bandwidth,br,de,enmanch,mod)>>4)&0x7)
-//#define M_Rb(br) (br/1000.0)
-
-//#define M_rxosr(br,bandwidth,enmanch) (500.0*8.0*(1.0+2.0*M_dwn3_bypass(bandwidth))/((1llu<<M_ndec_exp(bandwidth))*M_Rb(br)*(1+enmanch)))
-#define M_rxosr(br,bandwidth,de,enmanch,mod) (4000000llu*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch,mod))/\
-	((1llu<<M_ndec_exp(bandwidth,br,de,enmanch,mod))*br*(1+enmanch)))
-
-//#define M_ncoff(bandwidth,br,de,enmanch) ((M_Rb(br)*(1llu<<(20+M_ndec_exp(bandwidth,br,de,enmanch))))/\
-//	(500.0*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch))))
-#define M_ncoff(bandwidth,br,de,enmanch,mod) ((br*(1llu<<(20+M_ndec_exp(bandwidth,br,de,enmanch,mod))))/\
-	(500000llu*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch,mod))))
-#define M_crgain(br,de,bandwidth,enmanch,mod) (2+(1llu<<15)*(1+enmanch)*br/1000/M_rxosr(br,bandwidth,de,enmanch,mod)/de)
-
-#define M_crgain_C(br,de,bandwidth,enmanch,mod) ((M_crgain(br,de,bandwidth,enmanch,mod)>0x07ff)?\
-	(((uint32_t)M_crgain(br,de,bandwidth,enmanch,mod)>>1)|0x8000):\
-	(uint32_t)M_crgain(br,de,bandwidth,enmanch,mod))
-#define M_ncoff_C(bandwidth,br,de,enmanch,mod) (((uint32_t)M_ncoff(bandwidth,br,de,enmanch,mod)>=(1llu<<20))?\
-	((1llu<<20)-1):M_ncoff(bandwidth,br,de,enmanch,mod))
-#define M_ookcnt(bandwidth,br,de,enmanch,mod) ((uint32_t)(1500000llu/(br*(1+enmanch))))
-#define M_afc_bw_lim(bandwidth,br,de,enmanch,mod) (1000llu*bandwidth/1250llu/(0+1))
-#define M_afc_bw_lim_C(bandwidth,br,de,enmanch,mod) ((M_afc_bw_lim(bandwidth,br,de,enmanch,mod)>80)?80:M_afc_bw_lim(bandwidth,br,de,enmanch,mod))
-
-
-#define setup_modem(br,deviation,bandwidth,enmanch,enafc,mod) do{\
-		uint8_t buf;\
-		REGR(0x70,buf);\
-		if(enmanch)buf|=0x02;else buf&=~0x02;\
-		buf&=~(1<<5);\
-		buf|=(M_slow(br)<<5);\
-		REGW(0x70,buf);\
-		REGW(0x6f,M_txdr(br)&0xff);\
-		REGW(0x6e,(M_txdr(br)>>8)&0xff);\
-		REGW(0x1c,M_iffbw(bandwidth,br,deviation,enmanch,mod));\
-		REGW(0x20,(uint32_t)M_rxosr(br,bandwidth,deviation,enmanch,mod)&0xff);\
-		REGW(0x21,(((uint32_t)M_rxosr(br,bandwidth,deviation,enmanch,mod)>>3)&0xe0)|\
-			(((uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch,mod)>>16)&0x0f));\
-		REGW(0x22,((uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch,mod)>>8)&0xff);\
-		REGW(0x23,(uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch,mod)&0xff);\
-		REGW(0x24,(M_crgain_C(br,deviation,bandwidth,enmanch,mod)>>8)&0x0f);\
-		REGW(0x25,M_crgain_C(br,deviation,bandwidth,enmanch,mod)&0xff);\
-		REGW(0x1d,enafc?(/*si_afcbd|*/si_enafc|si_1p5bypass):0);\
-		REGW(0x2a,enafc?M_afc_bw_lim_C(bandwidth,br,deviation,enmanch,mod):0x00);\
-		if(mod==si_modtyp_ook)\
-		{\
-			REGW(0x2c,0x18|((M_ookcnt(bandwidth,br,deviation,enmanch,mod)>>8)&0xff)|(enmanch?0:0x20));\
-			REGW(0x2d,M_ookcnt(bandwidth,br,deviation,enmanch,mod)&0xff);\
-		}else{\
-			REGR(0x71,buf);\
-			buf&=~(1<<2);\
-			buf|=((M_fd(deviation)>>(8-2))&(1<<2));\
-			REGW(0x71,buf);\
-			REGW(0x72,M_fd(deviation)&0xff);\
-		}\
-		REGW(si_modcon2,si_dtmod_fifo|mod);\
-	}while(0)
-	
-#define hop(s,o) do{ uint8_t buf=s; REGW(si_fhs,buf);buf=o; REGW(si_fhch,buf); }while(0)
 
 
 struct modem_regs
@@ -318,6 +232,9 @@ void restore_modem(struct modem_regs * buffer)
 }
 /*
 */
+
+
+#define mode01_def (si_enlbd)
 
 #define FL_OVF2   0x01
 #define FL_OC2    0x02
@@ -661,26 +578,29 @@ ISR(SIG_INTERRUPT1)
 	}
 	if(int1&si_ipkvalid)
 	{
-		BURSTR(si_fifo,((uint8_t *)&ipkt),sizeof(ipkt));
-		REGR(si_rssi,frssi);
-		REGR(si_afccorrh,tmp1);
-		REGR(si_ookcnt1,tmp2);
-		REGR(si_interrupt1,int1);
-		REGR(si_interrupt2,int2);
-		REGR(si_rssi,frssi);
-		afc_corr=(tmp2>>si_afccorrl_shift)|(tmp1<<2);
-		rssif[prssi]=frssi/7;
-		prssi++;
-		if(prssi==sizeof(rssib))
-			prssi=0;
-		rssif[prssi]=rssib[prssi]=0;
-		validpkts++;
+		do{
+			BURSTR(si_fifo,((uint8_t *)&ipkt),sizeof(ipkt));
+			REGR(si_rssi,frssi);
+			REGR(si_afccorrh,tmp1);
+			REGR(si_ookcnt1,tmp2);
+			REGR(si_interrupt1,int1);
+			REGR(si_interrupt2,int2);
+			REGR(si_rssi,frssi);
+			afc_corr=(tmp2>>si_afccorrl_shift)|(tmp1<<2);
+			rssif[prssi]=frssi/7;
+			prssi++;
+			if(prssi==sizeof(rssib))
+				prssi=0;
+			rssif[prssi]=rssib[prssi]=0;
+			validpkts++;
+			REGR(si_status,tmp1);
+		}while(!(tmp1&si_rxffem));
 		flags|=FL_INT;
 	}
 	if(int1&si_ipksent)
 	{
-		REGW(si_mode01,0);
-		REGW(si_mode01,si_rxon);
+		REGW(si_mode01,mode01_def);
+		REGW(si_mode01,mode01_def|si_rxon);
 	}
 	LED0_OFF();
 }
@@ -689,39 +609,61 @@ void set_modem_conf(uint8_t conf)
 {
 	switch(conf)
 	{
-	case 0x01:	setup_modem(2400,2,7,0,1,si_modtyp_gfsk);break;
-	case 0x02:	setup_modem(4800,5,15,0,1,si_modtyp_gfsk);break;
-	case 0x03:	setup_modem(9600,5,22,0,1,si_modtyp_gfsk);break;
-	case 0x04:	setup_modem(19200,15,55,0,1,si_modtyp_gfsk);break;
-	case 0x05:	setup_modem(38400,50,142,0,1,si_modtyp_gfsk);break;
-	case 0x06:	setup_modem(50000,50,160,0,1,si_modtyp_gfsk);break;
-	case 0x07:	setup_modem(100000,100,300,0,1,si_modtyp_gfsk);break;
-	case 0x08:	setup_modem(200000,200,600,0,1,si_modtyp_gfsk);break;
+	case 0x01:	si4432_setup_modem(2400,2,7,0,1,si_modtyp_gfsk);break;
+	case 0x02:	si4432_setup_modem(4800,5,15,0,1,si_modtyp_gfsk);break;
+	case 0x03:	si4432_setup_modem(9600,5,22,0,1,si_modtyp_gfsk);break;
+	case 0x04:	si4432_setup_modem(19200,15,55,0,1,si_modtyp_gfsk);break;
+	case 0x05:	si4432_setup_modem(38400,50,142,0,1,si_modtyp_gfsk);break;
+	case 0x06:	si4432_setup_modem(50000,50,160,0,1,si_modtyp_gfsk);break;
+	case 0x07:	si4432_setup_modem(100000,100,300,0,1,si_modtyp_gfsk);break;
+	case 0x08:	si4432_setup_modem(200000,200,600,0,1,si_modtyp_gfsk);break;
 	
-	case 0x10:	setup_modem(1200,100,202,0,1,si_modtyp_gfsk);break;
-	case 0x11:	setup_modem(2400,100,204,0,1,si_modtyp_gfsk);break;
-	case 0x12:	setup_modem(4800,100,208,0,1,si_modtyp_gfsk);break;
-	case 0x13:	setup_modem(9600,100,215,0,1,si_modtyp_gfsk);break;
-	case 0x14:	setup_modem(19200,100,230,0,1,si_modtyp_gfsk);break;
-	case 0x15:	setup_modem(38400,100,250,0,1,si_modtyp_gfsk);break;
-	case 0x16:	setup_modem(50000,100,270,0,1,si_modtyp_gfsk);break;
-	case 0x17:	setup_modem(100000,100,300,0,1,si_modtyp_gfsk);break;
-	case 0x18:	setup_modem(200000,100,600,0,1,si_modtyp_gfsk);break;
+	case 0x10:	si4432_setup_modem(1200,100,202,0,1,si_modtyp_gfsk);break;
+	case 0x11:	si4432_setup_modem(2400,100,204,0,1,si_modtyp_gfsk);break;
+	case 0x12:	si4432_setup_modem(4800,100,208,0,1,si_modtyp_gfsk);break;
+	case 0x13:	si4432_setup_modem(9600,100,215,0,1,si_modtyp_gfsk);break;
+	case 0x14:	si4432_setup_modem(19200,100,230,0,1,si_modtyp_gfsk);break;
+	case 0x15:	si4432_setup_modem(38400,100,250,0,1,si_modtyp_gfsk);break;
+	case 0x16:	si4432_setup_modem(50000,100,270,0,1,si_modtyp_gfsk);break;
+	case 0x17:	si4432_setup_modem(100000,100,300,0,1,si_modtyp_gfsk);break;
+	case 0x18:	si4432_setup_modem(200000,100,600,0,1,si_modtyp_gfsk);break;
 	
-	case 0x20:	setup_modem(1200,100,200,0,1,si_modtyp_ook);break;
-	case 0x21:	setup_modem(2400,100,75,0,1,si_modtyp_ook);break;
-	case 0x22:	setup_modem(4800,100,75,0,1,si_modtyp_ook);break;
-	case 0x23:	setup_modem(9600,100,75,0,1,si_modtyp_ook);break;
-	case 0x24:	setup_modem(19200,100,75,0,1,si_modtyp_ook);break;
-	case 0x25:	setup_modem(38400,100,130,0,1,si_modtyp_ook);break;
-	case 0x26:	setup_modem(50000,100,160,0,1,si_modtyp_ook);break;
-	case 0x27:	setup_modem(100000,100,300,0,1,si_modtyp_ook);break;
-	case 0x28:	setup_modem(200000,100,600,0,1,si_modtyp_ook);break;
+	case 0x20:	si4432_setup_modem(1200,100,200,0,1,si_modtyp_ook);break;
+	case 0x21:	si4432_setup_modem(2400,100,75,0,1,si_modtyp_ook);break;
+	case 0x22:	si4432_setup_modem(4800,100,75,0,1,si_modtyp_ook);break;
+	case 0x23:	si4432_setup_modem(9600,100,75,0,1,si_modtyp_ook);break;
+	case 0x24:	si4432_setup_modem(19200,100,75,0,1,si_modtyp_ook);break;
+	case 0x25:	si4432_setup_modem(38400,100,130,0,1,si_modtyp_ook);break;
+	case 0x26:	si4432_setup_modem(50000,100,160,0,1,si_modtyp_ook);break;
+	case 0x27:	si4432_setup_modem(100000,100,300,0,1,si_modtyp_ook);break;
+	case 0x28:	si4432_setup_modem(200000,100,600,0,1,si_modtyp_ook);break;
 	
-	default:	setup_modem(1200,1,4,0,1,si_modtyp_gfsk);break;
+	default:	si4432_setup_modem(1200,1,4,0,1,si_modtyp_gfsk);break;
 	}
 }
 
+
+uint8_t get_vcc()
+{
+	uint8_t res;
+	REGRI(si_vbat,res);
+	return res+34;
+}
+
+static uint8_t oldboost=0;
+void update_boost()
+{
+	uint8_t k,t;
+	t=get_vcc();
+	for(k=5;k>2;k--)
+		if(t*k<=220)
+			break;
+	if(oldboost!=k)
+	{
+		st7558_set_boost(k-2);
+		oldboost=k;
+	}
+}
 
 
 
@@ -751,12 +693,12 @@ void main(void)
 	pr_rssi();
 	
 	si4432_swreset();
-	setupgpio(0x53);
+	si4432_setupgpio(0x53);
 	//setup_modem(50000,50,180,0,1);
 //	uint8_t selbr=eeprom_read_byte(0);
 	set_modem_conf(0);
-	tune_base(433000000);
-	hop(1,92);
+	si4432_tune_base(433000000);
+	si4432_hop(1,92);
 	REGW(si_headcon1,0);
 	REGW(si_headcon2,si_fixpklen|si_syncword3210);
 //	REGW(si_headcon2,0);
@@ -782,9 +724,13 @@ void main(void)
 	GIFR=0xff;
 	GICR|=(1<<INT1);
 	REGW(si_pklen,sizeof(ipkt));
-	REGW(si_mode01,si_rxon);
+//	REGW(si_rxafthr,sizeof(ipkt)-1);
+	REGW(si_mode01,mode01_def|si_rxon);
+	#if 0
 	uint32_t ipkt_s=0;
 	uint8_t ipkt_s_got=0;
+	#endif
+	uint32_t opkt_seq=0;
 	uint8_t mod_sel=0;
 	uint8_t ping_del=5;
 	
@@ -797,6 +743,7 @@ void main(void)
 		if(flags&FL_OVF2)
 		{
 			flags&=~FL_OVF2;
+			update_boost();
 /*			st7558_setpos(0,3);
 			st7558_print(counter&0xffff,5);*/
 		}
@@ -811,21 +758,44 @@ void main(void)
 			}
 			if(ipkt_cmd==IPK_CMD_HOP)
 			{
-				hop(ipkt.arg0,ipkt.arg1);
+				cli();
+				si4432_hop(ipkt.arg0,ipkt.arg1);
+				sei();
 			}
 			if(ipkt_cmd==IPK_CMD_PWR)
 			{
 				uint8_t tmp=0x18|(ipkt.arg0&0x07);
-				REGW(si_txpower,tmp);
+				REGWI(si_txpower,tmp);
 			}
 			if(ipkt.cmd&IPK_CMD_PING)
 			{
-				REGW(si_mode01,0);
+				REGWI(si_mode01,mode01_def);
 				opkt.cmd=OPK_CMD_PING;
-				REGR(si_txpower,opkt.arg0);
-				opkt.arg1=trssi;
-				opkt.arg2=frssi;
-				opkt.seq++;
+				if((ipkt.cmd==IPK_CMD_PING)&&(ipkt.arg2>0))
+				{
+					opkt.cmd+=ipkt.arg2;
+					switch(ipkt.arg2)
+					{
+						case 1:
+							opkt.arg0=get_vcc();
+							opkt.arg1=oldboost;
+							opkt.arg2=0xff;
+							opkt.seq=opkt_seq;
+						break;
+						case 2:
+							opkt.arg0=0xff;
+							opkt.arg1=0xff;
+							opkt.arg2=0xff;
+							opkt.seq=validpkts;
+						break;
+					}
+				}else{
+					REGR(si_txpower,opkt.arg0);
+					opkt.arg1=trssi;
+					opkt.arg2=frssi;
+					opkt.seq=opkt_seq;
+				}
+				opkt_seq++;
 				BURSTW(si_fifo,((uint8_t*)&opkt),sizeof(opkt));
 				if((ipkt.cmd==IPK_CMD_PING)&&(ipkt.arg0==1))
 					ping_del=ipkt.arg1;
@@ -833,7 +803,7 @@ void main(void)
 				if((ipkt.cmd==IPK_CMD_PING)&&(ipkt.arg0==2))
 					tc2_tgt=TCNT2+ipkt.arg1;
 				while(TCNT2!=tc2_tgt);
-				REGW(si_mode01,si_txon);
+				REGW(si_mode01,mode01_def|si_txon);
 				
 			}
 			flags|=FL_REFR;
@@ -846,9 +816,9 @@ void main(void)
 				nextmode=0x20;
 			if(nextmode>=0x29)
 				nextmode=0x00;
-			REGW(si_mode01,0);
+			REGWI(si_mode01,mode01_def);
 			set_modem_conf(mod_sel=nextmode);
-			REGW(si_mode01,si_rxon);
+			REGW(si_mode01,mode01_def|si_rxon);
 			flags|=FL_REFR;
 		}
 		if(flags&FL_REFR)
@@ -863,12 +833,17 @@ void main(void)
 			((uint8_t*)&tipkt)[1]=((uint8_t *)&ipkt.seq)[2];
 			((uint8_t*)&tipkt)[2]=((uint8_t *)&ipkt.seq)[1];
 			((uint8_t*)&tipkt)[3]=((uint8_t *)&ipkt.seq)[0];
+			#if 0
 			if(!ipkt_s_got)
 			{
 				ipkt_s_got=1;
 				ipkt_s=tipkt;
 			}
 			st7558_print(tipkt-ipkt_s,10);
+			#endif
+			#if 1
+			st7558_print(tipkt,10);
+			#endif
 			st7558_setpos(0,1);
 			st7558_prchar(VC_N);
 			st7558_prchar(VC_SPACE);

@@ -124,6 +124,18 @@ char st7558_init()
 	return 0;
 }
 
+void st7558_set_boost(uint8_t k)
+{
+	st7558_start();
+	st7558_write(0x78);
+	st7558_write(0x00);
+	st7558_write(0x21);//horizontal addressing,exit power down,ext instr set
+	st7558_write(0x08|k); //set booster voltage
+	st7558_write(0x20);//normal instr set
+	st7558_i2cSTOP();
+}
+
+
 void st7558_setpos(unsigned char x,unsigned char y)
 {
 	st7558_start();

@@ -1666,6 +1666,51 @@ H_MERGE(istop)
 
 #endif
 
+#ifndef HOOKS_INIT
+
+H_NEW(resp,"	\"resp 0/1\"			set auto responder\n")
+{
+	if(strcasecmp(argv[*argp], "resp") == 0)
+	{
+		char * arg=argv[*argp];
+		READ_PARAM("%s",*arg,"resp");
+		++ *argp;
+		int wValue=0;
+		if(strcasecmp(arg,"1")==0)
+			wValue=1;
+		char buffer=0;
+		int cnt = usb_control_msg(
+			handle,
+			USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN,
+			CUSTOM_RESPONDER,//int request
+			wValue,//int value
+			0,//int index
+			&buffer,//char *bytes
+			1,//int size
+			5000);//int timeout
+		if(cnt < 1)
+		{
+			if(cnt < 0)
+			{
+				fprintf(stderr, "USB error: %s\n", usb_strerror());
+				return 1;
+			}//else
+			//	fprintf(stderr, "only %d bytes received.\r", cnt);
+		}
+		printf("%d\n",buffer);
+		return 0;
+	}
+	return 2;
+}
+
+
+#else
+
+H_MERGE(resp)
+
+#endif
+
+
 
 
 

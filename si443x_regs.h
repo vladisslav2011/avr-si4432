@@ -268,6 +268,327 @@
 /*---------------------------------------------*/
 #define si_iffbw   0x1c
 
+
+
+
+/*---------------------------------------------*/
+#define si_afc_loop_gearshift_override   0x1d
+#define si_afcbd          (1<<7)
+#define si_enafc          (1<<6)
+#define si_afcgearh_mask  ((1<<5)|(1<<4)|(1<<3))
+#define si_afcgearh_and   0x07
+#define si_afcgearh_shift 3
+#define si_1p5bypass      (1<<2)
+#define si_matap          (1<<1)
+#define si_ph0size        (1<<0)
+/*---------------------------------------------*/
+#define si_afc_timing   0x1e
+#define si_swant_timer_mask  ((1<<7)|(1<<6))
+#define si_swant_timer_and   3
+#define si_swant_timer_shift 6
+#define si_shwait_mask       ((1<<5)|(1<<4)|(1<<3))
+#define si_shwait_and        0x07
+#define si_shwait_shift      3
+#define si_anwait_mask       ((1<<2)|(1<<1)|(1<<0))
+#define si_anwait_and        0x07
+#define si_anwait_shift      0
+/*---------------------------------------------*/
+#define si_cr_gearshift   0x1f
+#define si_crfast_mask       ((1<<5)|(1<<4)|(1<<3))
+#define si_crfast_and        0x07
+#define si_crfast_shift      3
+#define si_crslow_mask       ((1<<2)|(1<<1)|(1<<0))
+#define si_crslow_and        0x07
+#define si_crslow_shift      0
+/*---------------------------------------------*/
+#define si_rxosr   0x20
+/*---------------------------------------------*/
+#define si_crofs2   0x21
+#define si_rxosrh_mask    0xe0
+#define si_rxosrh_and     0x07
+#define si_rxosrh_shift   5
+#define si_skip2phth      (1<<4)
+#define si_ncoffhl_mask   0x0f
+#define si_ncoffhl_and    0x0f
+#define si_ncoffhl_shift  0
+/*---------------------------------------------*/
+#define si_crofs1   0x22
+#define si_ncofflh  0x22
+/*---------------------------------------------*/
+#define si_crofs0   0x23
+#define si_ncoffll  0x23
+/*---------------------------------------------*/
+#define si_cr_timing_loop_gain0   0x24
+#define si_rxncocomp     (1<<4)
+#define si_cgainx2       (1<<3)
+#define si_crgainh_mask  0x07
+#define si_crgainh_and   0x07
+#define si_crgainh_shift 0
+/*---------------------------------------------*/
+#define si_cr_timing_loop_gain1   0x25
+#define si_crgainl        0x25
+/*---------------------------------------------*/
+#define si_rssi      0x26
+/*---------------------------------------------*/
+#define si_rssith    0x27
+/*---------------------------------------------*/
+#define si_adrssi1   0x28
+/*---------------------------------------------*/
+#define si_adrssi2   0x29
+/*---------------------------------------------*/
+#define si_afclim    0x2a
+/*---------------------------------------------*/
+#define si_afccorrh   0x2b
+/*---------------------------------------------*/
+#define si_ookcnt1     0x2c
+#define si_afccorrl_mask   0xc0
+#define si_afccorrl_and    0x03
+#define si_afccorrl_shift  6
+#define si_ookfrzen        (1<<5)
+#define si_peakdeten       (1<<4)
+#define si_madeten         (1<<3)
+#define si_ookcnth_mask    0x03
+#define si_ookcnth_and     0x03
+#define si_ookcnth_shift   0
+
+/*---------------------------------------------*/
+#define si_ookcnt2     0x2d
+#define si_ookcntl     0x2d
+/*---------------------------------------------*/
+#define si_slicer_peak_holder     0x2e
+#define si_attack_mask  0x70
+#define si_attack_and   0x07
+#define si_attack_shift 4
+#define si_decay_mask  0x0f
+#define si_decay_and   0x0f
+#define si_decay_shift 0
+/*---------------------------------------------*/
+#define si_data_access_contorl     0x30
+#define si_enpacrx      (1<<7)
+#define si_lsbfrst      (1<<6)
+#define si_crcdonly     (1<<5)
+#define si_skip2ph      (1<<4)
+#define si_enpactx      (1<<3)
+#define si_encrc        (1<<2)
+#define si_crc_mask     0x03
+#define si_crc_CCITT    0x00
+#define si_crc16        0x01
+#define si_crc_iec16    0x02
+#define si_crc_biacheva 0x03
+/*---------------------------------------------*/
+#define si_ezmac_stat     0x31
+#define si_rxcrc1   (1<<6)
+#define si_pksrch   (1<<5)
+#define si_pkrx     (1<<4)
+#define si_pkvalid  (1<<3)
+#define si_crcerror (1<<2)
+#define si_pktx     (1<<1)
+#define si_pksent   (1<<0)
+/*---------------------------------------------*/
+#define si_headcon1     0x32
+#define si_bcen_mask    0xf0
+#define si_bcen_and     0x0f
+#define si_bcen_shift   4
+#define si_hdch_mask    0x0f
+#define si_hdch_and     0x0f
+#define si_hdch_shift   0
+/*---------------------------------------------*/
+#define si_headcon2     0x33
+#define si_skipsyn        (1<<7)
+#define si_hdlen_mask     0x70
+#define si_hdlen_none     0x00
+#define si_hdlen_3        0x10
+#define si_hdlen_32       0x20
+#define si_hdlen_321      0x30
+#define si_hdlen_3210     0x40
+#define si_fixpklen          (1<<3)
+#define si_synclen_mask   0x06
+#define si_syncword3      0x00
+#define si_syncword32     0x02
+#define si_syncword321    0x04
+#define si_syncword3210   0x06
+#define si_prealenh_mask  (1<<0)
+#define si_prealenh_and   1
+#define si_prealenh_shift 0
+/*---------------------------------------------*/
+#define si_prealenl     0x34
+/*---------------------------------------------*/
+#define si_preadetcon     0x35
+#define si_preath_mask       0xf8
+#define si_preath_and        0x1f
+#define si_preath_shift      3
+#define si_rssi_offset_mask  0x07
+#define si_rssi_offset_and   0x07
+#define si_rssi_offset_shift 0
+/*---------------------------------------------*/
+#define si_synchh     0x36
+#define si_sync3      0x36
+/*---------------------------------------------*/
+#define si_synchl     0x37
+#define si_sync2      0x37
+/*---------------------------------------------*/
+#define si_synclh     0x38
+#define si_sync1      0x38
+/*---------------------------------------------*/
+#define si_syncll     0x39
+#define si_sync0      0x39
+/*---------------------------------------------*/
+#define si_txhdhh     0x3a
+#define si_txhd3      0x3a
+/*---------------------------------------------*/
+#define si_txhdhl     0x3b
+#define si_txhd2      0x3b
+/*---------------------------------------------*/
+#define si_txhdlh     0x3c
+#define si_txhd1      0x3c
+/*---------------------------------------------*/
+#define si_txhdll     0x3d
+#define si_txhd0      0x3d
+/*---------------------------------------------*/
+#define si_pklen      0x3e
+/*---------------------------------------------*/
+#define si_chhdhh     0x3f
+#define si_chhd3      0x3f
+/*---------------------------------------------*/
+#define si_chhdhl     0x40
+#define si_chhd2      0x40
+/*---------------------------------------------*/
+#define si_chhdlh     0x41
+#define si_chhd1      0x41
+/*---------------------------------------------*/
+#define si_chhdll     0x42
+#define si_chhd0      0x42
+/*---------------------------------------------*/
+#define si_hdenhh     0x43
+#define si_hden3      0x43
+/*---------------------------------------------*/
+#define si_hdenhl     0x44
+#define si_hden2      0x44
+/*---------------------------------------------*/
+#define si_hdenlh     0x45
+#define si_hden1      0x45
+/*---------------------------------------------*/
+#define si_hdenll     0x46
+#define si_hden0      0x46
+/*---------------------------------------------*/
+#define si_rxhdhh     0x47
+#define si_rxhd3      0x47
+/*---------------------------------------------*/
+#define si_rxhdhl     0x48
+#define si_rxhd2      0x48
+/*---------------------------------------------*/
+#define si_rxhdlh     0x49
+#define si_rxhd1      0x49
+/*---------------------------------------------*/
+#define si_rxhdll     0x4a
+#define si_rxhd0      0x4a
+/*---------------------------------------------*/
+#define si_rxplen     0x4b
+/*---------------------------------------------*/
+#define si_adc8       0x4f
+/*---------------------------------------------*/
+#define si_invalid_preamble_threshold 0x60
+/*---------------------------------------------*/
+#define si_crystal_por_cntl 0x62
+#define si_pwst_mask      0xe0
+#define si_pwst_lp        0x00
+#define si_pwst_RDY       0x20
+#define si_pwst_tune      0x60
+#define si_pwst_tx        0x40
+#define si_pwst_rx        0xe0
+#define si_clkhyst        (1<<4)
+#define si_enbias2x       (1<<3)
+#define si_enamp2x        (1<<2)
+#define si_bufovr         (1<<1)
+#define si_enbuf          (1<<0)
+/*---------------------------------------------*/
+#define si_agc_override 0x69
+#define si_sgin      (1<<6)
+#define si_agcen     (1<<5)
+#define si_lnagain   (1<<4)
+#define si_pga_mask  0x07
+#define si_pga_and   0x07
+#define si_pga_shift 0
+/*---------------------------------------------*/
+#define si_txpower 0x6d
+#define si_lnasw       (1<<3)
+#define si_txpow_mask  0x07
+#define si_txpow_and   0x07
+#define si_txpow_shift 0
+
+/*---------------------------------------------*/
+#define si_txdrh 0x6e
+/*---------------------------------------------*/
+#define si_txdrl 0x6f
+/*---------------------------------------------*/
+#define si_modcon1 0x70
+#define si_txdtrtscale   (1<<5)
+#define si_enphpwdn      (1<<4)
+#define si_manppol       (1<<3)
+#define si_enmaninv      (1<<2)
+#define si_enmanch       (1<<1)
+#define si_enwhite       (1<<0)
+/*---------------------------------------------*/
+#define si_modcon2 0x71
+#define si_trclk_mask    0xc0
+#define si_trclk_none    0x00
+#define si_trclk_gpio    0x40
+#define si_trclk_sdo     0x80
+#define si_trclk_nirq    0xc0
+#define si_dtmod_mask    0x30
+#define si_dtmod_gpio    0x00
+#define si_dtmod_sdi     0x10
+#define si_dtmod_fifo    0x20
+#define si_dtmod_pn9     0x30
+#define si_eninv         (1<<3)
+#define si_fdh_mask      0x04
+#define si_fdh_and       1
+#define si_fdh_shift     2
+#define si_modtyp_mask   0x03
+#define si_modtyp_none   0x00
+#define si_modtyp_ook    0x01
+#define si_modtyp_fsk    0x02
+#define si_modtyp_gfsk   0x03
+/*---------------------------------------------*/
+#define si_fdl 0x72
+/*---------------------------------------------*/
+#define si_fol 0x73
+/*---------------------------------------------*/
+#define si_foh 0x74
+/*---------------------------------------------*/
+#define si_fbsel 0x75
+#define si_sbsel       (1<<6)
+#define si_hbsel       (1<<5)
+#define si_fb_mask     0x0f
+#define si_fb_and      0x0f
+#define si_fb_shift    0
+/*---------------------------------------------*/
+#define si_fch 0x76
+/*---------------------------------------------*/
+#define si_fcl 0x77
+/*---------------------------------------------*/
+#define si_fhch 0x79
+/*---------------------------------------------*/
+#define si_fhs 0x7a
+/*---------------------------------------------*/
+#define si_txafthr    0x7c
+/*---------------------------------------------*/
+#define si_txaethr    0x7d
+/*---------------------------------------------*/
+#define si_rxafthr    0x7e
+/*---------------------------------------------*/
+#define si_fifo      0x7f
+
+
+
+
+
+
+
+
+
+
+
 #define si_get_iffbw_H2(x) \
 	((x<=2.6)?81:((x<=2.8)?82:((x<=3.1)?83:((x<=3.2)?84:((x<=3.7)?85:((x<=4.9)?65:((x<=5.4)?\
 	66:((x<=5.9)?67:((x<=6.1)?68:((x<=7.2)?69:((x<=9.5)?49:((x<=10.6)?50:((x<=11.5)?51:\
@@ -662,327 +983,99 @@
 
 
 
-
-/*---------------------------------------------*/
-#define si_afc_loop_gearshift_override   0x1d
-#define si_afcbd          (1<<7)
-#define si_enafc          (1<<6)
-#define si_afcgearh_mask  ((1<<5)|(1<<4)|(1<<3))
-#define si_afcgearh_and   0x07
-#define si_afcgearh_shift 3
-#define si_1p5bypass      (1<<2)
-#define si_matap          (1<<1)
-#define si_ph0size        (1<<0)
-/*---------------------------------------------*/
-#define si_afc_timing   0x1e
-#define si_swant_timer_mask  ((1<<7)|(1<<6))
-#define si_swant_timer_and   3
-#define si_swant_timer_shift 6
-#define si_shwait_mask       ((1<<5)|(1<<4)|(1<<3))
-#define si_shwait_and        0x07
-#define si_shwait_shift      3
-#define si_anwait_mask       ((1<<2)|(1<<1)|(1<<0))
-#define si_anwait_and        0x07
-#define si_anwait_shift      0
-/*---------------------------------------------*/
-#define si_cr_gearshift   0x1f
-#define si_crfast_mask       ((1<<5)|(1<<4)|(1<<3))
-#define si_crfast_and        0x07
-#define si_crfast_shift      3
-#define si_crslow_mask       ((1<<2)|(1<<1)|(1<<0))
-#define si_crslow_and        0x07
-#define si_crslow_shift      0
-/*---------------------------------------------*/
-#define si_rxosr   0x20
-/*---------------------------------------------*/
-#define si_crofs2   0x21
-#define si_rxosrh_mask    0xe0
-#define si_rxosrh_and     0x07
-#define si_rxosrh_shift   5
-#define si_skip2phth      (1<<4)
-#define si_ncoffhl_mask   0x0f
-#define si_ncoffhl_and    0x0f
-#define si_ncoffhl_shift  0
-/*---------------------------------------------*/
-#define si_crofs1   0x22
-#define si_ncofflh  0x22
-/*---------------------------------------------*/
-#define si_crofs0   0x23
-#define si_ncoffll  0x23
-/*---------------------------------------------*/
-#define si_cr_timing_loop_gain0   0x24
-#define si_rxncocomp     (1<<4)
-#define si_cgainx2       (1<<3)
-#define si_crgainh_mask  0x07
-#define si_crgainh_and   0x07
-#define si_crgainh_shift 0
-/*---------------------------------------------*/
-#define si_cr_timing_loop_gain1   0x25
-#define si_crgainl        0x25
-/*---------------------------------------------*/
-#define si_rssi      0x26
-/*---------------------------------------------*/
-#define si_rssith    0x27
-/*---------------------------------------------*/
-#define si_adrssi1   0x28
-/*---------------------------------------------*/
-#define si_adrssi2   0x29
-/*---------------------------------------------*/
-#define si_afclim    0x2a
-/*---------------------------------------------*/
-#define si_afccorrh   0x2b
-/*---------------------------------------------*/
-#define si_ookcnt1     0x2c
-#define si_afccorrl_mask   0xc0
-#define si_afccorrl_and    0x03
-#define si_afccorrl_shift  6
-#define si_ookfrzen        (1<<5)
-#define si_peakdeten       (1<<4)
-#define si_madeten         (1<<3)
-#define si_ookcnth_mask    0x03
-#define si_ookcnth_and     0x03
-#define si_ookcnth_shift   0
-
-/*---------------------------------------------*/
-#define si_ookcnt2     0x2d
-#define si_ookcntl     0x2d
-/*---------------------------------------------*/
-#define si_slicer_peak_holder     0x2e
-#define si_attack_mask  0x70
-#define si_attack_and   0x07
-#define si_attack_shift 4
-#define si_decay_mask  0x0f
-#define si_decay_and   0x0f
-#define si_decay_shift 0
-/*---------------------------------------------*/
-#define si_data_access_contorl     0x30
-#define si_enpacrx      (1<<7)
-#define si_lsbfrst      (1<<6)
-#define si_crcdonly     (1<<5)
-#define si_skip2ph      (1<<4)
-#define si_enpactx      (1<<3)
-#define si_encrc        (1<<2)
-#define si_crc_mask     0x03
-#define si_crc_CCITT    0x00
-#define si_crc16        0x01
-#define si_crc_iec16    0x02
-#define si_crc_biacheva 0x03
-/*---------------------------------------------*/
-#define si_ezmac_stat     0x31
-#define si_rxcrc1   (1<<6)
-#define si_pksrch   (1<<5)
-#define si_pkrx     (1<<4)
-#define si_pkvalid  (1<<3)
-#define si_crcerror (1<<2)
-#define si_pktx     (1<<1)
-#define si_pksent   (1<<0)
-/*---------------------------------------------*/
-#define si_headcon1     0x32
-#define si_bcen_mask    0xf0
-#define si_bcen_and     0x0f
-#define si_bcen_shift   4
-#define si_hdch_mask    0x0f
-#define si_hdch_and     0x0f
-#define si_hdch_shift   0
-/*---------------------------------------------*/
-#define si_headcon2     0x33
-#define si_skipsyn        (1<<7)
-#define si_hdlen_mask     0x70
-#define si_hdlen_none     0x00
-#define si_hdlen_3        0x10
-#define si_hdlen_32       0x20
-#define si_hdlen_321      0x30
-#define si_hdlen_3210     0x40
-#define si_fixpklen          (1<<3)
-#define si_synclen_mask   0x06
-#define si_syncword3      0x00
-#define si_syncword32     0x02
-#define si_syncword321    0x04
-#define si_syncword3210   0x06
-#define si_prealenh_mask  (1<<0)
-#define si_prealenh_and   1
-#define si_prealenh_shift 0
-/*---------------------------------------------*/
-#define si_prealenl     0x34
-/*---------------------------------------------*/
-#define si_preadetcon     0x35
-#define si_preath_mask       0xf8
-#define si_preath_and        0x1f
-#define si_preath_shift      3
-#define si_rssi_offset_mask  0x07
-#define si_rssi_offset_and   0x07
-#define si_rssi_offset_shift 0
-/*---------------------------------------------*/
-#define si_synchh     0x36
-#define si_sync3      0x36
-/*---------------------------------------------*/
-#define si_synchl     0x37
-#define si_sync2      0x37
-/*---------------------------------------------*/
-#define si_synclh     0x38
-#define si_sync1      0x38
-/*---------------------------------------------*/
-#define si_syncll     0x39
-#define si_sync0      0x39
-/*---------------------------------------------*/
-#define si_txhdhh     0x3a
-#define si_txhd3      0x3a
-/*---------------------------------------------*/
-#define si_txhdhl     0x3b
-#define si_txhd2      0x3b
-/*---------------------------------------------*/
-#define si_txhdlh     0x3c
-#define si_txhd1      0x3c
-/*---------------------------------------------*/
-#define si_txhdll     0x3d
-#define si_txhd0      0x3d
-/*---------------------------------------------*/
-#define si_pklen      0x3e
-/*---------------------------------------------*/
-#define si_chhdhh     0x3f
-#define si_chhd3      0x3f
-/*---------------------------------------------*/
-#define si_chhdhl     0x40
-#define si_chhd2      0x40
-/*---------------------------------------------*/
-#define si_chhdlh     0x41
-#define si_chhd1      0x41
-/*---------------------------------------------*/
-#define si_chhdll     0x42
-#define si_chhd0      0x42
-/*---------------------------------------------*/
-#define si_hdenhh     0x43
-#define si_hden3      0x43
-/*---------------------------------------------*/
-#define si_hdenhl     0x44
-#define si_hden2      0x44
-/*---------------------------------------------*/
-#define si_hdenlh     0x45
-#define si_hden1      0x45
-/*---------------------------------------------*/
-#define si_hdenll     0x46
-#define si_hden0      0x46
-/*---------------------------------------------*/
-#define si_rxhdhh     0x47
-#define si_rxhd3      0x47
-/*---------------------------------------------*/
-#define si_rxhdhl     0x48
-#define si_rxhd2      0x48
-/*---------------------------------------------*/
-#define si_rxhdlh     0x49
-#define si_rxhd1      0x49
-/*---------------------------------------------*/
-#define si_rxhdll     0x4a
-#define si_rxhd0      0x4a
-/*---------------------------------------------*/
-#define si_rxplen     0x4b
-/*---------------------------------------------*/
-#define si_adc8       0x4f
-/*---------------------------------------------*/
-#define si_invalid_preamble_threshold 0x60
-/*---------------------------------------------*/
-#define si_crystal_por_cntl 0x62
-#define si_pwst_mask      0xe0
-#define si_pwst_lp        0x00
-#define si_pwst_RDY       0x20
-#define si_pwst_tune      0x60
-#define si_pwst_tx        0x40
-#define si_pwst_rx        0xe0
-#define si_clkhyst        (1<<4)
-#define si_enbias2x       (1<<3)
-#define si_enamp2x        (1<<2)
-#define si_bufovr         (1<<1)
-#define si_enbuf          (1<<0)
-/*---------------------------------------------*/
-#define si_agc_override 0x69
-#define si_sgin      (1<<6)
-#define si_agcen     (1<<5)
-#define si_lnagain   (1<<4)
-#define si_pga_mask  0x07
-#define si_pga_and   0x07
-#define si_pga_shift 0
-/*---------------------------------------------*/
-#define si_txpower 0x6d
-#define si_lnasw       (1<<3)
-#define si_txpow_mask  0x07
-#define si_txpow_and   0x07
-#define si_txpow_shift 0
-
-/*---------------------------------------------*/
-#define si_txdrh 0x6e
-/*---------------------------------------------*/
-#define si_txdrl 0x6f
-/*---------------------------------------------*/
-#define si_modcon1 0x70
-#define si_txdtrtscale   (1<<5)
-#define si_enphpwdn      (1<<4)
-#define si_manppol       (1<<3)
-#define si_enmaninv      (1<<2)
-#define si_enmanch       (1<<1)
-#define si_enwhite       (1<<0)
-/*---------------------------------------------*/
-#define si_modcon2 0x71
-#define si_trclk_mask    0xc0
-#define si_trclk_none    0x00
-#define si_trclk_gpio    0x40
-#define si_trclk_sdo     0x80
-#define si_trclk_nirq    0xc0
-#define si_dtmod_mask    0x30
-#define si_dtmod_gpio    0x00
-#define si_dtmod_sdi     0x10
-#define si_dtmod_fifo    0x20
-#define si_dtmod_pn9     0x30
-#define si_eninv         (1<<3)
-#define si_fdh_mask      0x04
-#define si_fdh_and       1
-#define si_fdh_shift     2
-#define si_modtyp_mask   0x03
-#define si_modtyp_none   0x00
-#define si_modtyp_ook    0x01
-#define si_modtyp_fsk    0x02
-#define si_modtyp_gfsk   0x03
-/*---------------------------------------------*/
-#define si_fdl 0x72
-/*---------------------------------------------*/
-#define si_fol 0x73
-/*---------------------------------------------*/
-#define si_foh 0x74
-/*---------------------------------------------*/
-#define si_fbsel 0x75
-#define si_sbsel       (1<<6)
-#define si_hbsel       (1<<5)
-#define si_fb_mask     0x0f
-#define si_fb_and      0x0f
-#define si_fb_shift    0
-/*---------------------------------------------*/
-#define si_fch 0x76
-/*---------------------------------------------*/
-#define si_fcl 0x77
-/*---------------------------------------------*/
-#define si_fhch 0x79
-/*---------------------------------------------*/
-#define si_fhs 0x7a
-/*---------------------------------------------*/
-#define si_txafthr    0x7c
-/*---------------------------------------------*/
-#define si_txaethr    0x7d
-/*---------------------------------------------*/
-#define si_rxafthr    0x7e
-/*---------------------------------------------*/
-#define si_fifo      0x7f
+#define si4432_swreset() do{\
+		REGW(0x07,0x80);\
+		REGW(0x07,0x00);\
+		REGW(0x07,0x01);\
+		while(GET_nIRQ());\
+		uint8_t dummy;\
+		REGR(si_interrupt1,dummy);\
+		REGR(si_interrupt2,dummy);\
+		REGW(si_inten1,0);\
+		REGW(si_inten2,0);\
+	}while(0)
 
 
+#define si4432_tune_base(fr) do{\
+		REGW(0x75,(1<<6)|(((fr>=480000000.0)?1:0)<<5)|((uint8_t)(fr/10000000.0-24.0)));\
+		REGW(0x76,(((uint32_t)((fr/10000000.0-24.0-((uint32_t)(fr/10000000.0-24.0)))*64000.0))>>8)&0xff);\
+		REGW(0x77,((uint32_t)((fr/10000000.0-24.0-((uint32_t)(fr/10000000.0-24.0)))*64000.0))&0xff);\
+	}while(0)
+
+#define si4432_setupgpio(qoff) do{\
+		REGW(0x0b,0x12);\
+		REGW(0x0c,0x15);\
+		REGW(0x0d,0x14);\
+		REGW(0x0d,0x03);\
+		REGW(0x09,qoff);\
+		REGW(0x0a,0);\
+	}while(0)
 
 
+#define M_fd(de) (de*1000llu/625llu)
+#define M_H(br,de,enmanch) (2llu*de/br/(1+enmanch))
+#define M_BWmod(br,de,enmanch) (br*(1+enmanch)+2*de)
+#define M_txdr(br) ((br<30000)?(br*(1llu<<21)/1000000llu):(br*(1llu<<16)/1000000llu))
+#define M_slow(br) (br<30000)
+#define M_iffbw(bandwidth,br,de,enmanch,mod) ((mod==si_modtyp_ook)?si_ook_iffbw(br,bandwidth):si_get_iffbw(bandwidth,M_H(br,de,enmanch)))
+#define M_dwn3_bypass(bandwidth,br,de,enmanch,mod) ((M_iffbw(bandwidth,br,de,enmanch,mod)&0x80)>>7)
+#define M_ndec_exp(bandwidth,br,de,enmanch,mod) ((M_iffbw(bandwidth,br,de,enmanch,mod)>>4)&0x7)
+//#define M_Rb(br) (br/1000.0)
+
+//#define M_rxosr(br,bandwidth,enmanch) (500.0*8.0*(1.0+2.0*M_dwn3_bypass(bandwidth))/((1llu<<M_ndec_exp(bandwidth))*M_Rb(br)*(1+enmanch)))
+#define M_rxosr(br,bandwidth,de,enmanch,mod) (4000000llu*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch,mod))/\
+	((1llu<<M_ndec_exp(bandwidth,br,de,enmanch,mod))*br*(1+enmanch)))
+
+/*#define M_ncoff(bandwidth,br,de,enmanch) ((M_Rb(br)*(1llu<<(20+M_ndec_exp(bandwidth,br,de,enmanch))))/\
+	(500.0*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch))))*/
+#define M_ncoff(bandwidth,br,de,enmanch,mod) ((br*(1llu<<(20+M_ndec_exp(bandwidth,br,de,enmanch,mod))))/\
+	(500000llu*(1+2*M_dwn3_bypass(bandwidth,br,de,enmanch,mod))))
+#define M_crgain(br,de,bandwidth,enmanch,mod) (2+(1llu<<15)*(1+enmanch)*br/1000/M_rxosr(br,bandwidth,de,enmanch,mod)/de)
+
+#define M_crgain_C(br,de,bandwidth,enmanch,mod) ((M_crgain(br,de,bandwidth,enmanch,mod)>0x07ff)?\
+	(((uint32_t)M_crgain(br,de,bandwidth,enmanch,mod)>>1)|0x8000):\
+	(uint32_t)M_crgain(br,de,bandwidth,enmanch,mod))
+#define M_ncoff_C(bandwidth,br,de,enmanch,mod) (((uint32_t)M_ncoff(bandwidth,br,de,enmanch,mod)>=(1llu<<20))?\
+	((1llu<<20)-1):M_ncoff(bandwidth,br,de,enmanch,mod))
+#define M_ookcnt(bandwidth,br,de,enmanch,mod) ((uint32_t)(1500000llu/(br*(1+enmanch))))
+#define M_afc_bw_lim(bandwidth,br,de,enmanch,mod) (1000llu*bandwidth/1250llu/(0+1))
+#define M_afc_bw_lim_C(bandwidth,br,de,enmanch,mod) ((M_afc_bw_lim(bandwidth,br,de,enmanch,mod)>80)?80:M_afc_bw_lim(bandwidth,br,de,enmanch,mod))
 
 
-
-
-
-
-
-
-
+#define si4432_setup_modem(br,deviation,bandwidth,enmanch,enafc,mod) do{\
+		uint8_t buf;\
+		REGR(0x70,buf);\
+		if(enmanch)buf|=0x02;else buf&=~0x02;\
+		buf&=~(1<<5);\
+		buf|=(M_slow(br)<<5);\
+		REGW(0x70,buf);\
+		REGW(0x6f,M_txdr(br)&0xff);\
+		REGW(0x6e,(M_txdr(br)>>8)&0xff);\
+		REGW(0x1c,M_iffbw(bandwidth,br,deviation,enmanch,mod));\
+		REGW(0x20,(uint32_t)M_rxosr(br,bandwidth,deviation,enmanch,mod)&0xff);\
+		REGW(0x21,(((uint32_t)M_rxosr(br,bandwidth,deviation,enmanch,mod)>>3)&0xe0)|\
+			(((uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch,mod)>>16)&0x0f));\
+		REGW(0x22,((uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch,mod)>>8)&0xff);\
+		REGW(0x23,(uint32_t)M_ncoff_C(bandwidth,br,deviation,enmanch,mod)&0xff);\
+		REGW(0x24,(M_crgain_C(br,deviation,bandwidth,enmanch,mod)>>8)&0x0f);\
+		REGW(0x25,M_crgain_C(br,deviation,bandwidth,enmanch,mod)&0xff);\
+		REGW(0x1d,enafc?(/*si_afcbd|*/si_enafc|si_1p5bypass):0);\
+		REGW(0x2a,enafc?M_afc_bw_lim_C(bandwidth,br,deviation,enmanch,mod):0x00);\
+		if(mod==si_modtyp_ook)\
+		{\
+			REGW(0x2c,0x18|((M_ookcnt(bandwidth,br,deviation,enmanch,mod)>>8)&0xff)|(enmanch?0:0x20));\
+			REGW(0x2d,M_ookcnt(bandwidth,br,deviation,enmanch,mod)&0xff);\
+		}else{\
+			REGR(0x71,buf);\
+			buf&=~(1<<2);\
+			buf|=((M_fd(deviation)>>(8-2))&(1<<2));\
+			REGW(0x71,buf);\
+			REGW(0x72,M_fd(deviation)&0xff);\
+		}\
+		REGW(si_modcon2,si_dtmod_fifo|mod);\
+	}while(0)
+	
+#define si4432_hop(s,o) do{ uint8_t buf=s; REGW(si_fhs,buf);buf=o; REGW(si_fhch,buf); }while(0)
 
 
 
