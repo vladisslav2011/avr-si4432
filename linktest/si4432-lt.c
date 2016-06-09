@@ -255,6 +255,7 @@ volatile uint8_t flags;
 volatile uint8_t nextmode;
 volatile union WD latch1,delta;
 union WD cal1,cal2;
+volatile uint8_t txpw;
 
 /* ------------------------------------------------------------------------- */
 void init_timer1()
@@ -323,8 +324,9 @@ ISR(SIG_OVERFLOW2)
 		btn_prev=btn_tmp;
 		if(!btn_prev)
 		{
-/*			if(btn_dur<BTN_DUR)
-				nextmode++;*/
+			if(btn_dur<BTN_DUR)
+//				nextmode++;
+				txpw++;
 			btn_dur=BTN_DUR+2;
 		}else
 			btn_dur=0;
@@ -582,6 +584,7 @@ void main(void)
 {
 	uint8_t mod_sel=0;
 	uint32_t last_cal1=2000000l,last_cal2=2000000l;
+	uint8_t repl_failed=0;
 	validpkts=0;
 	LED1_ON();
 	PORTD|=(1<<3)|(1<<7);
@@ -662,14 +665,18 @@ void main(void)
 				OSCCAL++;
 			cal1.d=cal2.d;
 			update_boost();
-			TIMSK&=~(1<<TICIE1);
-			REGW(si_mode01,si_pllon|si_xton);
-			TIFR=(1<<TICIE1);
-			REGW(si_mode02,si_ffclrrx|si_ffclrtx);
-			REGW(si_mode02,0);
-			REGW(si_fifo,0);
-			REGW(si_fifo,0);
-			REGW(si_mode01,si_txon|si_pllon|si_xton);
+			uint8_t tmp=0;
+			REGRI(si_mode01,tmp);
+			REGWI(si_mode01,si_pllon|si_xton);
+			repl_failed=(tmp&si_rxon);
+			REGWI(si_mode02,si_ffclrrx|si_ffclrtx);
+			REGWI(si_mode02,0);
+			if(txpw>7)
+				txpw=0;
+			REGWI(si_fifo,0);
+			REGWI(si_fifo,txpw|0x18);
+			REGWI(si_txpower,txpw|0x18);
+			REGWI(si_mode01,si_txon|si_pllon|si_xton);
 			TIMSK|=(1<<TICIE1);
 		}
 		if(flags&FL_INT)
@@ -708,20 +715,21 @@ void main(void)
 			st7558_setpos(0,0);
 			st7558_prchar(VC_D);
 			st7558_prchar(VC_SPACE);
-			#if 1
-			uint32_t xx=delta.d;
-			xx*=(2000000l/32l);
-			xx/=(last_cal2/32);
-			avgp++;
-			if(avgp==N_AVG)
-				avgp=0;
-			tavg+=xx;
-			tavg-=avgbuf[avgp];
-			avgbuf[avgp]=xx;
+			if(!repl_failed)
+			{
+				uint32_t xx=delta.d;
+				xx*=(2000000l/32l);
+				xx/=(last_cal2/32);
+				avgp++;
+				if(avgp==N_AVG)
+					avgp=0;
+				tavg+=xx;
+				tavg-=avgbuf[avgp];
+				avgbuf[avgp]=xx;
+			}
 			st7558_print(tavg/(N_AVG/10),10);
 //			st7558_print(xx,10);
 //			st7558_print((delta.d*4000000l)/last_cal2,10);
-			#endif
 			st7558_setpos(0,1);
 			st7558_prchar(VC_N);
 			st7558_prchar(VC_SPACE);
@@ -737,7 +745,7 @@ void main(void)
 			st7558_prchar(VC_COMMA);
 			st7558_print(frssi,3);
 			st7558_setpos(0,3);
-			st7558_prhex(tagc,1);
+			st7558_prhex(txpw,1);
 			st7558_prhex(mod_sel,1);
 			st7558_setpos(6*8,3);
 			st7558_print(afc_corr,4);

@@ -632,6 +632,25 @@ uchar   i;
 		}*/
 		LED0_OFF();
 		radioPoll();
+		if(resp)
+		{
+			uint8_t tmp;
+			rx1buf_p=0;
+			do{
+				REGR(si_status,tmp);
+				if(tmp&si_rxffem)
+					break;
+				REGR(si_fifo,rx1buf[rx1buf_p++]);
+			}while(1);
+			if(rx1buf[rx1buf_p-1]>0)
+			{
+				REGW(si_mode02,si_ffclrtx);
+				REGW(si_mode02,0);
+				REGW(si_fifo,rx1buf[rx1buf_p-1]);
+				REGW(si_fifo,0);
+				REGW(si_txpower,0x18|(rx1buf[rx1buf_p-1]&0x07));
+			}
+		}
 /*		if(resp==2)
 		{
 			uint8_t tmp,int1,int2;
