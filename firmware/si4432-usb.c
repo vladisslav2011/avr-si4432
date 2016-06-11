@@ -52,6 +52,7 @@ different port or bit, change the macros below:
 #define LED0_OFF() DDRD&=~(1<<4)
 
 #define GET_nIRQ() (PINB & (1<<1))
+#define SET_SDN(x) if(x)PORTD|=(1<<5);else PORTD&=~(1<<5)
 
 #define SPI_CS(x) if(x)PORTB|=(1<<PB2);else PORTB&=~(1<<PB2)
 #define REGW_m(r,v) do{\
@@ -593,7 +594,7 @@ uchar   i;
     }
 	init_spi();
 	si4432_swreset();
-	si4432_setupgpio(0x58);
+	si4432_setupgpio(si_gpio0txstate,si_gpio1rxstate,si_gpio2rxdat,0x58);
 	set_modem_conf(5);
 	si4432_tune_base(433000000);
 	si4432_hop(1,180);

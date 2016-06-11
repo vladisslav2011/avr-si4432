@@ -536,7 +536,7 @@ void main(void)
 /*	REGW(0x5a,0x03);
 	REGW(0x59,0x00);
 	REGW(0x66,0x02);*/
-	si4432_setupgpio(0x53);
+	si4432_setupgpio(si_gpio0txstate,si_gpio1rxstate,si_gpio2rxdat,0x58);
 /*	REGW(si_modcon2,si_dtmod_fifo|si_modtyp_gfsk);
 	setup_modem(50000,50,200,0,1,si_modtyp_gfsk);*/
 	REGW(si_modcon2,si_dtmod_fifo|si_modtyp_ook);

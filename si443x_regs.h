@@ -1002,11 +1002,11 @@
 		REGW(0x77,((uint32_t)((fr/10000000.0-24.0-((uint32_t)(fr/10000000.0-24.0)))*64000.0))&0xff);\
 	}while(0)
 
-#define si4432_setupgpio(qoff) do{\
-		REGW(0x0b,0x12);\
-		REGW(0x0c,0x15);\
-		REGW(0x0d,0x14);\
-		REGW(0x0d,0x03);\
+#define si4432_setupgpio(g0,g1,g2,qoff) do{\
+		REGW(si_GPIO0,g0);\
+		REGW(si_GPIO1,g1);\
+		REGW(si_GPIO2,g2);\
+		REGW(si_GPIO2,si_gpio2ddin);\
 		REGW(0x09,qoff);\
 		REGW(0x0a,0);\
 	}while(0)

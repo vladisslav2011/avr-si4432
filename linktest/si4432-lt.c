@@ -607,7 +607,7 @@ void main(void)
 	for(k=0;k!=33;k++)
 		rssif[k+33]=k-1;
 	pr_rssi();
-	si4432_setupgpio(0x53);
+	si4432_setupgpio(si_gpio0txstate,si_gpio1rxstate,si_gpio2rxdat,0x58);
 	//setup_modem(50000,50,180,0,1);
 //	uint8_t selbr=eeprom_read_byte(0);
 	nextmode=mod_sel=5;
