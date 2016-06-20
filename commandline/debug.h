@@ -499,11 +499,11 @@ H_NEW(tune,"	\"tune freq\"			tune si443x pll\n")
 		READ_PARAM("%lf",fr,"tune");
 		++ *argp;
 		int hbsel=(fr>=480000000)?1:0;
-		int fb=fr/10000000.0-24.0;
-		int fc=(fr/10000000.0-24.0-fb)*64000.0;
-		int fc1=(fr/10000000.0-24.0-((int)(fr/10000000.0-24.0)))*64000.0;
+		int fb=fr/10000000.0/(hbsel+1)-24.0;
+		int fc=(fr/10000000.0/(hbsel+1)-24.0-fb)*64000.0;
+		int fc1=(fr/10000000.0/(hbsel+1)-24.0-((int)(fr/10000000.0/(hbsel+1)-24.0)))*64000.0;
 		printf("hbsel=%d\nfb=%02x\nfc=%02x\nfc1=%02x\n",hbsel,fb,fc,fc1);
-		set_reg(0x75,(1<<6)|(hbsel<<5)|fb);
+		set_reg(0x75,(1<<6)|(hbsel<<5)|(fb&0x1f));
 		set_reg(0x76,(fc>>8)&0xff);
 		set_reg(0x77,fc&0xff);
 		

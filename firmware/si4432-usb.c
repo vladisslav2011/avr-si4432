@@ -37,6 +37,8 @@ different port or bit, change the macros below:
 /* ----------------------------- USB interface ----------------------------- */
 /* ------------------------------------------------------------------------- */
 
+#define HW_VER 1
+
 #define STATE_SPI_TX       1
 #define STATE_SPI_TX_OUT   2
 
@@ -558,7 +560,12 @@ void start_responder()
 	REGW(si_mode02,0);
 	REGR(si_interrupt1,int1);
 	REGR(si_interrupt2,int2);
+	#if HW_VER == 1
 	REGW(si_GPIO2,si_gpio2rxstate);
+	#endif
+	#if HW_VER == 1
+	REGW(si_GPIO0,si_gpio0rxstate);
+	#endif
 	REGW(si_fifo,0);
 	REGW(si_fifo,0);
 	TIFR=(1<<TICIE1);
@@ -584,17 +591,24 @@ void main(void)
 {
 uchar   i;
 	rxtxrx_state=0;
-	DDRD|=(1<<4);
+	SET_SDN(1);
+	DDRD|=(1<<4)|(1<<5);
     usbDeviceDisconnect();  /* enforce re-enumeration, do this while interrupts are disabled! */
     usbInit();
     init_usart();
     i = 0;
+	SET_SDN(0);
     while(--i){             /* fake USB disconnect for > 250 ms */
         _delay_ms(1);
     }
 	init_spi();
 	si4432_swreset();
+	#if HW_VER == 0
 	si4432_setupgpio(si_gpio0txstate,si_gpio1rxstate,si_gpio2rxdat,0x58);
+	#endif
+	#if HW_VER == 1
+	si4432_setupgpio(si_gpio0txstate,si_gpio1txstate,si_gpio2rxstate,0x58);
+	#endif
 	set_modem_conf(5);
 	si4432_tune_base(433000000);
 	si4432_hop(1,180);
@@ -621,8 +635,9 @@ uchar   i;
 		}
 		LED0_ON();
 		usbPoll();
+		
 		if(iwp!=irp)
-        	if(UCSRA&(1<<UDRE))
+			if(UCSRA&(1<<UDRE))
 			{
 				UDR=intbuf[irp++];
 			}
