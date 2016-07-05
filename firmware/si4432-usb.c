@@ -37,7 +37,7 @@ different port or bit, change the macros below:
 /* ----------------------------- USB interface ----------------------------- */
 /* ------------------------------------------------------------------------- */
 
-#define HW_VER 1
+#define HW_VER 0
 
 #define STATE_SPI_TX       1
 #define STATE_SPI_TX_OUT   2
@@ -560,7 +560,7 @@ void start_responder()
 	REGW(si_mode02,0);
 	REGR(si_interrupt1,int1);
 	REGR(si_interrupt2,int2);
-	#if HW_VER == 1
+	#if HW_VER == 0
 	REGW(si_GPIO2,si_gpio2rxstate);
 	#endif
 	#if HW_VER == 1
