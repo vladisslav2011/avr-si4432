@@ -25,9 +25,8 @@ enum {
 	
 };
 
-#define SPI_BYTES_MASK 0x03
-#define SPI_CS_BEFORE  0x04
-#define SPI_CS_AFTER   0x08
+#define SPI_CS_BEFORE  0x01
+#define SPI_CS_AFTER   0x02
 
 #define RXTXRX_IDLE 0
 #define RXTXRX_RX1  1

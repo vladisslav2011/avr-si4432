@@ -323,14 +323,14 @@ uint8_t get_iffbw_lut(double in,double H)
 
 int spi_transfer(uint8_t * buf,int len, int cs_before,int cs_after)
 {
-	if(len>3)
+	if(len>2)
 		return -1;
 	int cnt = usb_control_msg(
 		handle,
 		USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN,
 		SPI_TRANS,//int request
 		(len>0)?(buf[0]|((len>1)?(buf[1]<<8):0)):0,//int value
-		(len&SPI_BYTES_MASK)|(cs_before?SPI_CS_BEFORE:0)|(cs_after?SPI_CS_AFTER:0)|((len>2)?buf[2]<<8:0),//int index
+		(cs_before?SPI_CS_BEFORE:0)|(cs_after?SPI_CS_AFTER:0)|(0<<8),//int index
 		(char*)buf,//char *bytes
 		len,//int size
 		5000);//int timeout

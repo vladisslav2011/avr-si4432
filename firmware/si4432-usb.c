@@ -37,7 +37,7 @@ different port or bit, change the macros below:
 /* ----------------------------- USB interface ----------------------------- */
 /* ------------------------------------------------------------------------- */
 
-#define HW_VER 0
+#define HW_VER 1
 
 #define STATE_SPI_TX       1
 #define STATE_SPI_TX_OUT   2
@@ -56,14 +56,14 @@ different port or bit, change the macros below:
 #define GET_nIRQ() (PINB & (1<<1))
 #define SET_SDN(x) if(x)PORTD|=(1<<5);else PORTD&=~(1<<5)
 
-#define SPI_CS(x) if(x)PORTB|=(1<<PB2);else PORTB&=~(1<<PB2)
+#define SI_CS(x) if(x)PORTB|=(1<<PB2);else PORTB&=~(1<<PB2)
 #define REGW_m(r,v) do{\
-	SPI_CS(0);\
+	SI_CS(0);\
 	SPDR=(r|0x80);\
 	while((SPSR&(1<<SPIF))==0);\
 	SPDR=(v);\
 	while((SPSR&(1<<SPIF))==0);\
-	SPI_CS(1);\
+	SI_CS(1);\
 	\
 	 }while(0)
 
@@ -71,15 +71,22 @@ void REGW(uint8_t r,uint8_t v)
 {
 	REGW_m(r,v);
 }
- 
+
+ void REGWI(uint8_t r,uint8_t v)
+{
+	cli();
+	REGW_m(r,v);
+	sei();
+}
+
 #define REGR_m(r,v) do{\
-	SPI_CS(0);\
+	SI_CS(0);\
 	SPDR=(r&0x7f);\
 	while((SPSR&(1<<SPIF))==0);\
 	SPDR=0xff;\
 	while((SPSR&(1<<SPIF))==0);\
 	v=SPDR;\
-	SPI_CS(1);\
+	SI_CS(1);\
 	\
 	 }while(0)
 
@@ -91,9 +98,10 @@ uint8_t REGR_f(uint8_t r)
 }
 
 #define REGR(r,v) v=REGR_f(r)
+#define REGRI(r,v) do{ cli(); v=REGR_f(r) ; sei(); }while(0)
 
 #define BURSTW(r,buf,n) do{\
-	SPI_CS(0);\
+	SI_CS(0);\
 	SPDR=(r|0x80);\
 	while((SPSR&(1<<SPIF))==0);\
 	uint8_t k;\
@@ -102,12 +110,12 @@ uint8_t REGR_f(uint8_t r)
 		SPDR=(buf[k]);\
 		while((SPSR&(1<<SPIF))==0);\
 	}\
-	SPI_CS(1);\
+	SI_CS(1);\
 	\
 	 }while(0)
 
 #define BURSTR(r,buf,n) do{\
-	SPI_CS(0);\
+	SI_CS(0);\
 	SPDR=(r&0x7f);\
 	while((SPSR&(1<<SPIF))==0);\
 	uint8_t k;\
@@ -117,7 +125,7 @@ uint8_t REGR_f(uint8_t r)
 		while((SPSR&(1<<SPIF))==0);\
 		buf[k]=SPDR;\
 	}\
-	SPI_CS(1);\
+	SI_CS(1);\
 	\
 	 }while(0)
 
@@ -185,46 +193,27 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
 		case SPI_TRANS:
 			if(rq->bmRequestType&USBRQ_DIR_DEVICE_TO_HOST)
 			{
-				if(rq->wIndex.bytes[0]&SPI_CS_BEFORE)
-					PORTB|=(1<<PB2);
-				else
-					PORTB&=~(1<<PB2);
-				uint8_t cnt=rq->wIndex.bytes[0]&SPI_BYTES_MASK;
-				if(cnt>0)
+				SI_CS(rq->wIndex.bytes[0]&SPI_CS_BEFORE);
+				if(rq->wLength.bytes[0]>0)
 				{
 					SPDR=rq->wValue.bytes[0];
 					while((SPSR&(1<<SPIF))==0);
 					replyBuffer[0]=SPDR;
-					if(cnt>1)
+					if(rq->wLength.bytes[0]>1)
 					{
 						SPDR=rq->wValue.bytes[1];
 						while((SPSR&(1<<SPIF))==0);
 						replyBuffer[1]=SPDR;
-						if(cnt>2)
-						{
-							SPDR=rq->wIndex.bytes[1];
-							while((SPSR&(1<<SPIF))==0);
-							replyBuffer[2]=SPDR;
-						}
 					}
 				}
-				if(rq->wIndex.bytes[0]&SPI_CS_AFTER)
-					PORTB|=(1<<PB2);
-				else
-					PORTB&=~(1<<PB2);
-				return cnt;
+				SI_CS(rq->wIndex.bytes[0]&SPI_CS_AFTER);
+				return rq->wLength.bytes[0];
 			}else{
 				return 0;
 			}
 		case SPI_BURST:
-			if(rq->wIndex.bytes[0]&SPI_CS_BEFORE)
-				PORTB|=(1<<PB2);
-			else
-				PORTB&=~(1<<PB2);
-			if(rq->wIndex.bytes[0]&SPI_CS_AFTER)
-				burst_cs_after=1;
-			else
-				burst_cs_after=0;
+			SI_CS(rq->wIndex.bytes[0]&SPI_CS_BEFORE);
+			burst_cs_after=(rq->wIndex.bytes[0]&SPI_CS_AFTER);
 			bLength=rq->wLength.word;
 			return USB_NO_MSG;
 		case CUSTOM_RXTXRX:
@@ -334,10 +323,7 @@ uint8_t usbFunctionRead(uint8_t * data, uint8_t len)
 			}
 			if(!bLength)
 			{
-				if(burst_cs_after)
-					PORTB|=(1<<PB2);
-				else
-					PORTB&=~(1<<PB2);
+				SI_CS(burst_cs_after);
 			}
 			return k;
 		case CUSTOM_RXTXRX:
@@ -549,10 +535,20 @@ void set_modem_conf(uint8_t conf)
 	}
 }
 
+void stop_responder()
+{
+	TIMSK&=~(1<<TICIE1);
+	resp=0;
+	REGW(si_mode01,0);
+	REGW(si_mode02,si_ffclrrx|si_ffclrtx);
+	REGW(si_mode02,0);
+}
 
 void start_responder()
 {
 	uint8_t int1,int2;
+	if(resp)
+		stop_responder();
 	REGW(si_inten1,0);
 	REGW(si_inten2,0);
 	REGW(si_pklen,2);
@@ -576,14 +572,6 @@ void start_responder()
 	TCCR1B=(0<<ICES1)|1;
 }
 
-void stop_responder()
-{
-	TIMSK&=~(1<<TICIE1);
-	resp=0;
-	REGW(si_mode01,0);
-	REGW(si_mode02,si_ffclrrx|si_ffclrtx);
-	REGW(si_mode02,0);
-}
 
 
 
@@ -593,6 +581,8 @@ uchar   i;
 	rxtxrx_state=0;
 	SET_SDN(1);
 	DDRD|=(1<<4)|(1<<5);
+	PORTC=(1<<1)|(1<<2);
+	DDRC=(1<<0)|(1<<1);
     usbDeviceDisconnect();  /* enforce re-enumeration, do this while interrupts are disabled! */
     usbInit();
     init_usart();
@@ -653,18 +643,24 @@ uchar   i;
 			uint8_t tmp;
 			rx1buf_p=0;
 			do{
+				TIMSK&=~(1<<TICIE1);
 				REGR(si_status,tmp);
+				TIMSK|=(1<<TICIE1);
 				if(tmp&si_rxffem)
 					break;
+				TIMSK&=~(1<<TICIE1);
 				REGR(si_fifo,rx1buf[rx1buf_p++]);
+				TIMSK|=(1<<TICIE1);
 			}while(1);
 			if(rx1buf[rx1buf_p-1]>0)
 			{
+				TIMSK&=~(1<<TICIE1);
 				REGW(si_mode02,si_ffclrtx);
 				REGW(si_mode02,0);
 				REGW(si_fifo,rx1buf[rx1buf_p-1]);
 				REGW(si_fifo,0);
 				REGW(si_txpower,0x18|(rx1buf[rx1buf_p-1]&0x07));
+				TIMSK|=(1<<TICIE1);
 			}
 		}
 /*		if(resp==2)
