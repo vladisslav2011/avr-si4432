@@ -57,7 +57,6 @@ static struct s_hook * hooks = NULL;
 
 static unsigned char usbchunk=254;
 unsigned long long restartaddr=0;
-static unsigned char spi_mode=0;
 
 
 

@@ -313,7 +313,7 @@ uint8_t get_iffbw_lut(double in,double H)
 	struct IFFBW_LUT lut_H2[]  =si_make_iffbw_lut_f_H2;
 	struct IFFBW_LUT lut_H210[]=si_make_iffbw_lut_f_H2_10;
 	struct IFFBW_LUT lut_H10[] =si_make_iffbw_lut_f_H10;
-	struct IFFBW_LUT * lut=(struct IFFBW_LUT *)(H<=2)?&lut_H2[0]:((H<=10)?&lut_H210[0]:&lut_H10[0]);
+	struct IFFBW_LUT * lut=(struct IFFBW_LUT *)((H<=2)?&lut_H2[0]:((H<=10)?&lut_H210[0]:&lut_H10[0]));
 	int k=0;
 	for(;k<sizeof(lut_H2)/sizeof(lut[0]);k++)
 		if(in<=lut[k].f)
@@ -1067,7 +1067,7 @@ H_NEW(trxpk,"	\"trxpk len to - rx with timeout (bytes,ms)\n")
 		int ln;
 		uint64_t ms;
 		READ_PARAM("%i",ln,"trxpk");
-		READ_PARAM("%llu",ms,"trxpk");
+		READ_PARAM("%lu",ms,"trxpk");
 		++ *argp;
 		
 		if(ln>0)
@@ -1653,7 +1653,8 @@ H_NEW(istop,"	\"istop\n")
 			(char *)buf,//char *bytes
 			1,//int size
 			5000);//int timeout
-		printf("buffer=%d\n",buf[0]);
+		if(cnt)
+			printf("buffer=%d\n",buf[0]);
 		return 0;
 	}
 	return 2;
@@ -1710,6 +1711,51 @@ H_MERGE(resp)
 
 #endif
 
+
+#ifndef HOOKS_INIT
+
+#define _ABS(x) (((x)>0)?(x):-(x))
+H_NEW(mv,"	\"mv\"			measure voltage\n")
+{
+	
+	if(strcasecmp(argv[*argp], "mv") == 0)
+	{
+		++ *argp;
+		
+		union {
+			char buffer[4];
+			uint16_t mv[2];
+		} bs;
+		int cnt = usb_control_msg(
+			handle,
+			USB_TYPE_VENDOR | USB_RECIP_DEVICE | USB_ENDPOINT_IN,
+			CUSTOM_MV,//int request
+			0,//int value
+			0,//int index
+			&bs.buffer[0],//char *bytes
+			4,//int size
+			1000);//int timeout
+		if(cnt < 1)
+		{
+			if(cnt < 0)
+			{
+				fprintf(stderr, "USB error: %s\n", usb_strerror());
+				return 1;
+			}else
+				fprintf(stderr, "only %d bytes received.\r", cnt);
+		}
+		printf("mv=%d/%d=%04.2f\n",bs.mv[1],bs.mv[0],(bs.mv[1]-bs.mv[0]==0)?-255.0:((float)bs.mv[1])/((float)_ABS(bs.mv[1]-bs.mv[0])));
+		return 0;
+	}
+	return 2;
+}
+
+
+#else
+
+H_MERGE(mv)
+
+#endif
 
 
 

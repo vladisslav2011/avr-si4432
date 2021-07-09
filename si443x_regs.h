@@ -991,6 +991,7 @@
 		uint8_t dummy;\
 		REGR(si_interrupt1,dummy);\
 		REGR(si_interrupt2,dummy);\
+		dummy;\
 		REGW(si_inten1,0);\
 		REGW(si_inten2,0);\
 	}while(0)
