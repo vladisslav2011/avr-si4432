@@ -424,83 +424,6 @@ uint8_t usbFunctionWrite(uint8_t * data, uint8_t len)
 	return 0;
 }
 /* ------------------------------------------------------------------------- */
-
-
-void radioPoll()
-{
-	uint8_t int1;
-	uint8_t int2;
-	switch(rxtxrx_state)
-	{
-	case RXTXRX_IDLE://idle
-		return;
-	case RXTXRX_RX1://rx1
-			REGW(si_pklen,rx1buf_len);
-			REGW(si_mode02,si_ffclrrx);
-			REGW(si_mode02,0);
-			REGW(si_inten1,si_ipkvalid);
-			REGW(si_inten2,0);
-			REGR(si_interrupt1,int1);
-			REGR(si_interrupt2,int2);
-			REGW(si_mode01,si_rxon);
-			rxtxrx_state=RXTXRX_TX1;
-	case RXTXRX_TX1://tx1
-			if(GET_nIRQ()==0)
-			{
-				BURSTR(si_fifo,rx1buf,rx1buf_len);
-				REGW(si_mode02,si_ffclrtx);
-				REGW(si_mode02,0);
-				REGW(si_pklen,tx1buf_len);
-				BURSTW(si_fifo,tx1buf,tx1buf_len);
-				REGW(si_inten1,si_ipksent);
-				REGR(si_interrupt1,int1);
-				REGR(si_interrupt2,int2);
-				REGW(si_mode01,si_txon);
-				rxtxrx_state=RXTXRX_RX2;
-			}
-	case RXTXRX_RX2://rx2
-			if(GET_nIRQ()==0)
-			{
-				REGW(si_pklen,rx2buf_len);
-				REGW(si_mode02,si_ffclrrx);
-				REGW(si_mode02,0);
-				REGW(si_inten1,si_ipkvalid);
-				REGW(si_inten2,si_ipreaval|si_iswdet);
-				REGR(si_interrupt1,int1);
-				REGR(si_interrupt2,int2);
-				REGW(si_mode01,si_rxon);
-				rxtxrx_state=RXTXRX_FIN;
-			}
-	case RXTXRX_FIN://finish
-			if(GET_nIRQ()==0)
-			{
-				REGR(si_interrupt2,int2);
-				if(int2&(si_ipreaval|si_iswdet))
-				{
-					REGR(si_rssi,rxtxrx_rssi);
-					REGW(si_inten2,0);
-				}
-				REGR(si_interrupt1,int1);
-				if(int1&si_ipkvalid)
-				{
-					BURSTR(si_fifo,rx2buf,rx2buf_len);
-					REGW(si_mode02,si_ffclrtx|si_ffclrrx);
-					REGW(si_mode02,0);
-					REGW(si_inten1,0);
-					REGW(si_inten2,0);
-					REGR(si_interrupt1,int1);
-					REGR(si_interrupt2,int2);
-					REGW(si_mode01,0);
-					rxtxrx_state=RXTXRX_DONE;
-				}
-			}
-	default://all done
-		return;
-	}
-}
-
-
-
 ISR(TIMER1_CAPT_vect,ISR_NOBLOCK)
 {
 }
@@ -518,31 +441,6 @@ ISR(TIMER2_COMP_vect,ISR_NOBLOCK)
 	PORTB^=(1<<0)|(1<<2);
 }
 
-void init_usart()
-{
-	UBRRL=GENUBRR(115200)&0xff;
-	UBRRH=(GENUBRR(115200)>>8)&0xff;
-	UCSRA=GENU2X(115200);
-	UCSRC=(1<<URSEL)|(0<<UPM0)|(0<<UPM1)|(0<<USBS)|(1<<UCSZ1)|(1<<UCSZ0);
-	UCSRB=(1<<RXEN)|(1<<TXEN)|(0<<UCSZ2);
-}
-
-void set_modem_conf(uint8_t conf)
-{
-	switch(conf)
-	{
-	case 0x01:	si4432_setup_modem(2400,2,7,0,1,si_modtyp_fsk);break;
-	case 0x02:	si4432_setup_modem(4800,5,15,0,1,si_modtyp_fsk);break;
-	case 0x03:	si4432_setup_modem(9600,5,22,0,1,si_modtyp_fsk);break;
-	case 0x04:	si4432_setup_modem(19200,15,55,0,1,si_modtyp_fsk);break;
-	case 0x05:	si4432_setup_modem(38400,50,142,0,1,si_modtyp_fsk);break;
-	case 0x06:	si4432_setup_modem(50000,50,160,0,1,si_modtyp_fsk);break;
-	case 0x07:	si4432_setup_modem(100000,100,300,0,1,si_modtyp_fsk);break;
-	case 0x08:	si4432_setup_modem(200000,200,600,0,1,si_modtyp_fsk);break;
-	
-	default:	si4432_setup_modem(1200,1,4,0,1,si_modtyp_fsk);break;
-	}
-}
 
 void stop_responder()
 {
@@ -551,6 +449,8 @@ void stop_responder()
 	REGW(si_mode01,0);
 	REGW(si_mode02,si_ffclrrx|si_ffclrtx);
 	REGW(si_mode02,0);
+	TCCR2=0;
+	DDRB&=~(1<<0);
 }
 
 void start_responder()
@@ -589,12 +489,290 @@ void start_responder()
 }
 
 
+uint8_t r_state=0;
+uint8_t got_rssi=0;
+enum R_STATES{
+	R_ENTER_WATCH=0,
+	R_WATCH,
+	R_DET1,
+	R_CW_PREPARE,
+	R_CW_SEND,
+	R_BEACON_PREPARE,
+	R_BEACON_SEND,
+};
+
+#define len_0 0x0f
+#define p_0 0x1e
+#define len_1 0x1e
+#define p_1 0x0f
+#define pp 0x3f
+
+void add_0()
+{
+	intbuf[iwp++]=0x80|len_0;
+	intbuf[iwp++]=p_0;
+}
+
+void add_1()
+{
+	intbuf[iwp++]=0x80|len_1;
+	intbuf[iwp++]=p_1;
+}
+
+void add_p()
+{
+	intbuf[iwp++]=pp;
+}
+
+void cw_num(uint8_t in)
+{
+	switch(in)
+	{
+	case 0: 
+		add_1();add_1();add_1();add_1();add_1();add_p();
+	break;
+	case 1: 
+		add_0();add_1();add_1();add_1();add_1();add_p();
+	break;
+	case 2: 
+		add_0();add_0();add_1();add_1();add_1();add_p();
+	break;
+	case 3: 
+		add_0();add_0();add_0();add_1();add_1();add_p();
+	break;
+	case 4: 
+		add_0();add_0();add_0();add_0();add_1();add_p();
+	break;
+	case 5: 
+		add_0();add_0();add_0();add_0();add_0();add_p();
+	break;
+	case 6: 
+		add_1();add_0();add_0();add_0();add_0();add_p();
+	break;
+	case 7: 
+		add_1();add_1();add_0();add_0();add_0();add_p();
+	break;
+	case 8: 
+		add_1();add_1();add_1();add_0();add_0();add_p();
+	break;
+	case 9: 
+		add_1();add_1();add_1();add_1();add_0();add_p();
+	break;
+	case 0x0a: 
+		add_0();add_1();add_p();
+	break;
+	case 0x0b: 
+		add_1();add_0();add_0();add_0();add_p();
+	break;
+	case 0x0c: 
+		add_1();add_0();add_1();add_0();add_p();
+	break;
+	case 0x0d: 
+		add_1();add_0();add_0();add_p();
+	break;
+	case 0x0e: 
+		add_0();add_p();
+	break;
+	case 0x0f: 
+		add_0();add_0();add_1();add_0();add_p();
+	break;
+	default:
+		add_1();add_0();add_p();
+		add_1();add_0();add_p();
+	}
+}
+
+
+
+
+
+
+
+void radioPoll()
+{
+	uint8_t int1;
+	uint8_t int2;
+	static uint8_t det;
+	static uint16_t pt1=0;
+	uint16_t t1;
+	
+	cli();
+	t1=t0;
+	sei();
+	switch(r_state)
+	{
+	case R_WATCH://idle
+			REGR(si_interrupt1,int1);
+			REGR(si_interrupt2,int2);
+			if(int2 & si_ipreaval)
+			{
+				REGR(si_rssi,got_rssi);
+				r_state=R_DET1;
+				TCNT1=0;
+				t0=0;
+				det=0;
+				LED0_ON();
+			}else{
+				if(t1>50)
+					r_state=R_ENTER_WATCH;
+			}
+		return;
+	case R_DET1:
+			REGR(si_interrupt1,int1);
+			REGR(si_interrupt2,int2);
+			if(t1>4)
+				det=1;
+			if(!(int2 & si_ipreaval))
+			{
+				LED0_OFF();
+				if(det==1)
+					r_state=R_BEACON_PREPARE;
+				if(det==0)
+					r_state=R_CW_PREPARE;
+			}
+		return;
+	case R_ENTER_WATCH:
+		REGW(si_mode01,1);
+		si4432_setup_modem(2000,2,3,0,1,si_modtyp_gfsk);
+		REGW(si_data_access_contorl,0);
+		REGW(si_inten1,0);
+		REGW(si_inten2,0);
+		REGW(si_mode01,7);
+		REGW(si_preadetcon,(8<<si_preath_shift)|0);
+		t0=0;
+		r_state=R_WATCH;
+		return;
+	case R_CW_PREPARE:
+		LED0_ON();
+		iwp=irp=0;
+/*		cw_num(got_rssi>>4);
+		cw_num(got_rssi&0x0f);*/
+		
+		cw_num(got_rssi/100);
+		cw_num((got_rssi/10)%10);
+		cw_num(got_rssi%10);
+		
+/*		cw_num((det/10)%10);
+		cw_num(det%10);*/
+		
+		start_responder();
+		//TCCR1B=(0<<CS22)|(1<<CS21)|(0<<CS20)|0;
+		TCNT1=0;
+		t0=0;
+		
+		
+		
+				TIMSK&=~(1<<OCIE2);
+		REGW(0x6d,0x1f);
+		REGW(si_mode01,si_txon|si_pllon|si_xton);
+		OCR2=0x40;
+		r_state=R_CW_SEND;
+		return;
+	case R_CW_SEND:
+		if(t1!=pt1)
+		{
+			pt1=t1;
+			if(t1<3)
+				return;
+			if(iwp==irp)
+			{
+				stop_responder();
+				r_state=R_ENTER_WATCH;
+				LED0_OFF();
+				return;
+			}
+			uint8_t to_int=intbuf[irp++];
+			if(to_int&0x80)
+			{
+				TIMSK|=(1<<OCIE2);
+			}else{
+				TIMSK&=~(1<<OCIE2);
+			}
+			to_int&=0x7f;
+/*			if(to_int&0x10)
+				TCNT1=0;
+			else
+				TCNT1=0x7fff;*/
+			TCNT1=0xffff-(to_int<<10);
+/*			}else{
+				REGW(0x6d,0x18);
+				REGW(si_mode01,si_pllon|si_xton);
+			}*/
+		}
+		return;
+	case R_BEACON_PREPARE:
+		t0=0;
+		start_responder();
+		r_state=R_BEACON_SEND;
+		return;
+	case R_BEACON_SEND:
+		if(t1!=pt1)
+		{
+			pt1=t1;
+			if(t1>0x20)
+			{
+				stop_responder();
+				r_state=R_ENTER_WATCH;
+				return;
+			}
+/*			if(t1&0x010)
+			{*/
+				uint8_t ta=((t1>>1)&0x07);
+				OCR2=0x80 + (ta<<1);
+				REGW(0x6d,0x18|ta);
+				if(t1&0x0001)
+				{
+					TIMSK|=(1<<OCIE2);
+				}else{
+					TIMSK&=~(1<<OCIE2);
+				}
+				REGW(si_mode01,si_txon|si_pllon|si_xton);
+/*			}else{
+				REGW(0x6d,0x18);
+				REGW(si_mode01,si_pllon|si_xton);
+			}*/
+		}
+		return;
+	default://all done
+		return;
+	}
+}
+
+
+
+
+void init_usart()
+{
+	UBRRL=GENUBRR(115200)&0xff;
+	UBRRH=(GENUBRR(115200)>>8)&0xff;
+	UCSRA=GENU2X(115200);
+	UCSRC=(1<<URSEL)|(0<<UPM0)|(0<<UPM1)|(0<<USBS)|(1<<UCSZ1)|(1<<UCSZ0);
+	UCSRB=(1<<RXEN)|(1<<TXEN)|(0<<UCSZ2);
+}
+
+void set_modem_conf(uint8_t conf)
+{
+	switch(conf)
+	{
+	case 0x01:	si4432_setup_modem(2400,2,7,0,1,si_modtyp_fsk);break;
+	case 0x02:	si4432_setup_modem(4800,5,15,0,1,si_modtyp_fsk);break;
+	case 0x03:	si4432_setup_modem(9600,5,22,0,1,si_modtyp_fsk);break;
+	case 0x04:	si4432_setup_modem(19200,15,55,0,1,si_modtyp_fsk);break;
+	case 0x05:	si4432_setup_modem(38400,50,142,0,1,si_modtyp_fsk);break;
+	case 0x06:	si4432_setup_modem(50000,50,160,0,1,si_modtyp_fsk);break;
+	case 0x07:	si4432_setup_modem(100000,100,300,0,1,si_modtyp_fsk);break;
+	case 0x08:	si4432_setup_modem(200000,200,600,0,1,si_modtyp_fsk);break;
+	
+	default:	si4432_setup_modem(1200,1,4,0,1,si_modtyp_fsk);break;
+	}
+}
+
+
 
 
 void main(void)
 {
 	uchar   i;
-	uint16_t t1,pt1;
 	rxtxrx_state=0;
 	SET_SDN(1);
 	DDRD|=(1<<4)|(1<<5);
@@ -616,7 +794,7 @@ void main(void)
 	si4432_setupgpio(si_gpio0txstate,si_gpio1rxstate,si_gpio2rxdat,0x00);
 	#endif
 	#if HW_VER == 1
-	si4432_setupgpio(si_gpio0txstate,si_gpio1txstate,si_gpio2rxstate,0x00);
+	si4432_setupgpio(si_gpio0rxdat,si_gpio1txstate,si_gpio2rxstate,0x00);
 	#endif
 	set_modem_conf(1);
 	si4432_tune_base(433000300);
@@ -630,26 +808,26 @@ void main(void)
 	REGW(si_sync1,0x21);
 	REGW(si_sync0,0xff);
 	REGW(si_data_access_contorl,si_enpacrx|si_enpactx|si_encrc|si_crc16);
-	start_responder();
+	//start_responder();
  	set_sleep_mode(SLEEP_MODE_IDLE);
     usbDeviceConnect();
     sei();
 	DDRD&=~(1<<4);
     for(;;){                /* main event loop */
-		if((rxtxrx_state&0x7f)<=0)
+/*		if((rxtxrx_state&0x7f)<=0)
 		{
 			sleep_enable();
 			sleep_cpu();
 			sleep_disable();
-		}
+		}*/
 		//LED0_ON();
 		usbPoll();
 		
-		if(iwp!=irp)
+/*		if(iwp!=irp)
 			if(UCSRA&(1<<UDRE))
 			{
 				UDR=intbuf[irp++];
-			}
+			}*/
 /*		if(usbInterruptIsReady())
 		{
 			if(iwp!=irp)
@@ -658,29 +836,6 @@ void main(void)
 		//LED0_OFF();
 		radioPoll();
 		//state machine here
-		cli();
-		t1=t0;
-		sei();
-		if(t1!=pt1)
-		{
-			pt1=t1;
-/*			if(t1&0x010)
-			{*/
-				uint8_t ta=((t1>>1)&0x07);
-				OCR2=0x80 | (ta<<1);
-				REGW(0x6d,0x18|ta);
-				if(t1&0x0001)
-				{
-					TIMSK|=(1<<OCIE2);
-				}else{
-					TIMSK&=~(1<<OCIE2);
-				}
-				REGW(si_mode01,si_txon|si_pllon|si_xton);
-/*			}else{
-				REGW(0x6d,0x18);
-				REGW(si_mode01,si_pllon|si_xton);
-			}*/
-		}
 /*		if(resp==2)
 		{
 			uint8_t tmp,int1,int2;
