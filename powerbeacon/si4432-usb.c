@@ -502,10 +502,11 @@ enum R_STATES{
 };
 
 #define len_0 0x0f
-#define p_0 0x1e
-#define len_1 0x1e
+#define p_0 0x0f
+//#define len_1 0x1e
+#define len_1 (0x0f*3)
 #define p_1 0x0f
-#define pp 0x3f
+#define pp (0x0f*3)
 
 void add_0()
 {
@@ -576,6 +577,10 @@ void cw_num(uint8_t in)
 	case 0x0f: 
 		add_0();add_0();add_1();add_0();add_p();
 	break;
+	case 0xff: 
+		add_p();
+		add_p();
+	break;
 	default:
 		add_1();add_0();add_p();
 		add_1();add_0();add_p();
@@ -590,10 +595,10 @@ void cw_num(uint8_t in)
 
 void radioPoll()
 {
-	uint8_t int1;
 	uint8_t int2;
 	static uint8_t det;
 	static uint16_t pt1=0;
+	static uint16_t cnt=0;
 	uint16_t t1;
 	
 	cli();
@@ -633,7 +638,7 @@ void radioPoll()
 		return;
 	case R_ENTER_WATCH:
 		REGW(si_mode01,1);
-		si4432_setup_modem(2000,2,3,0,1,si_modtyp_gfsk);
+		si4432_setup_modem(2000,2,4,0,1,si_modtyp_gfsk);
 		REGW(si_data_access_contorl,0);
 		REGW(si_inten1,0);
 		REGW(si_inten2,0);
@@ -648,9 +653,18 @@ void radioPoll()
 /*		cw_num(got_rssi>>4);
 		cw_num(got_rssi&0x0f);*/
 		
+		cnt++;
+		
 		cw_num(got_rssi/100);
 		cw_num((got_rssi/10)%10);
 		cw_num(got_rssi%10);
+		
+		cw_num(0xff);
+		
+		cw_num((cnt/100)%10);
+		cw_num((cnt/10)%10);
+		cw_num(cnt%10);
+		
 		
 /*		cw_num((det/10)%10);
 		cw_num(det%10);*/
@@ -797,7 +811,7 @@ void main(void)
 	si4432_setupgpio(si_gpio0rxdat,si_gpio1txstate,si_gpio2rxstate,0x00);
 	#endif
 	set_modem_conf(1);
-	si4432_tune_base(433000300);
+	si4432_tune_base(433000350);
 	si4432_hop(1,170);
 	REGW(si_headcon1,0);
 	REGW(si_headcon2,si_fixpklen|si_syncword3210);
